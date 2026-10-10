@@ -59,3 +59,7 @@ El servicio se conecta a `localhost` en el puerto `POSTGRES_PORT`.
 ```
 
 Los tests de integración levantan su propio PostgreSQL 18 en un contenedor descartable (Testcontainers), así que solo requieren Docker en ejecución; no usan el `.env` ni la base del compose.
+
+## Decisiones de diseño
+
+El registro de decisiones técnicas, con alternativas descartadas y justificación, está en [docs/decisiones.md](docs/decisiones.md).
