@@ -29,9 +29,21 @@ class JpaUserRepositoryAdapterTest {
     private final JpaUserRepositoryAdapter adapter;
     private final EntityManager entityManager;
 
+    private User newUser(String login, String email) {
+        return User.builder()
+                .login(login)
+                .passwordHash("$2a$10$abcdefghijklmnopqrstuuABCDEFGHIJKLMNOPQRSTUVWXYZ01234")
+                .email(email)
+                .langKey("es")
+                .activated(true)
+                .authorities(Set.of("ROLE_USER"))
+                .build();
+    }
+
     @Test
     void createPersistsUserWithGeneratedIdTimestampsAndAuthorities() {
         User created = adapter.create(newUser("maria.perez", "maria@mail.com"));
+        // flush escribe en la base y clear vacía la memoria de Hibernate: lo que se lee viene de la base
         entityManager.flush();
         entityManager.clear();
 
@@ -88,6 +100,7 @@ class JpaUserRepositoryAdapterTest {
         adapter.create(newUser("ana", "ana@mail.com"));
         entityManager.flush();
 
+        // El nombre de la restricción es el que usará el manejo de errores para distinguir login de email
         assertThatThrownBy(() -> {
             adapter.create(newUser("ana", "ana2@mail.com"));
             entityManager.flush();
@@ -105,16 +118,5 @@ class JpaUserRepositoryAdapterTest {
             entityManager.flush();
         }).isInstanceOf(DataIntegrityViolationException.class)
                 .hasMessageContaining("uk_users_email");
-    }
-
-    private User newUser(String login, String email) {
-        return User.builder()
-                .login(login)
-                .passwordHash("$2a$10$abcdefghijklmnopqrstuuABCDEFGHIJKLMNOPQRSTUVWXYZ01234")
-                .email(email)
-                .langKey("es")
-                .activated(true)
-                .authorities(Set.of("ROLE_USER"))
-                .build();
     }
 }

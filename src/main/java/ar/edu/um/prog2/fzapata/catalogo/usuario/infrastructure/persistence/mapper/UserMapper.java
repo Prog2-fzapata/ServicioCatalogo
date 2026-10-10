@@ -22,6 +22,7 @@ public class UserMapper {
                 .imageUrl(user.getImageUrl())
                 .langKey(user.getLangKey())
                 .activated(user.isActivated())
+                // Se copia el Set para que dominio y entidad no compartan la misma colección
                 .authorities(user.getAuthorities() == null ? new HashSet<>() : new HashSet<>(user.getAuthorities()))
                 .createdDate(user.getCreatedDate())
                 .lastModifiedDate(user.getLastModifiedDate())

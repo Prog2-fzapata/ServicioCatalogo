@@ -51,6 +51,7 @@ public class UserEntity {
 
     private boolean activated;
 
+    // EAGER: los roles se leen siempre junto con el usuario, también fuera de una transacción
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "user_authorities", joinColumns = @JoinColumn(name = "user_id"))
     @Column(name = "authority_name")

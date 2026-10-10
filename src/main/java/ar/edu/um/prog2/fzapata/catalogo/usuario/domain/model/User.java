@@ -17,6 +17,7 @@ import lombok.Setter;
 public class User {
     private Long id;
     private String login;
+    // Hash BCrypt; la contraseña en claro nunca forma parte del modelo
     private String passwordHash;
     private String firstName;
     private String lastName;

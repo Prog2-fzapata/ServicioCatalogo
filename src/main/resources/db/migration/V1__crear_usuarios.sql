@@ -10,10 +10,12 @@ CREATE TABLE users (
     activated          BOOLEAN      NOT NULL,
     created_date       TIMESTAMPTZ  NOT NULL DEFAULT now(),
     last_modified_date TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    -- Restricciones con nombre: el manejo de errores las usa para distinguir login de email
     CONSTRAINT uk_users_login UNIQUE (login),
     CONSTRAINT uk_users_email UNIQUE (email)
 );
 
+-- Roles posibles; por ahora solo ROLE_USER
 CREATE TABLE authorities (
     name VARCHAR(50) PRIMARY KEY
 );

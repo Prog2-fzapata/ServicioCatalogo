@@ -17,6 +17,23 @@ class UserMapperTest {
 
     private final UserMapper mapper = new UserMapper();
 
+    private User fullUser() {
+        return User.builder()
+                .id(7L)
+                .login("maria.perez")
+                .passwordHash("hash")
+                .firstName("Maria")
+                .lastName("Perez")
+                .email("maria@mail.com")
+                .imageUrl("https://img.example/maria.png")
+                .langKey("es")
+                .activated(true)
+                .authorities(Set.of("ROLE_USER"))
+                .createdDate(CREATED)
+                .lastModifiedDate(MODIFIED)
+                .build();
+    }
+
     @Test
     void toEntityCopiesEveryField() {
         User user = fullUser();
@@ -68,22 +85,5 @@ class UserMapperTest {
     void nullInputReturnsNull() {
         assertThat(mapper.toEntity(null)).isNull();
         assertThat(mapper.toDomainModel(null)).isNull();
-    }
-
-    private User fullUser() {
-        return User.builder()
-                .id(7L)
-                .login("maria.perez")
-                .passwordHash("hash")
-                .firstName("Maria")
-                .lastName("Perez")
-                .email("maria@mail.com")
-                .imageUrl("https://img.example/maria.png")
-                .langKey("es")
-                .activated(true)
-                .authorities(Set.of("ROLE_USER"))
-                .createdDate(CREATED)
-                .lastModifiedDate(MODIFIED)
-                .build();
     }
 }
