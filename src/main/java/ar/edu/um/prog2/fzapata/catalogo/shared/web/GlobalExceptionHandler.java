@@ -50,6 +50,18 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return handleExceptionInternal(ex, problem, headers, status, request);
     }
 
+    // Pasan por acá todas las respuestas de la clase base, también las que no sobrescribimos (404, 405, 415...)
+    @Override
+    protected ResponseEntity<Object> handleExceptionInternal(Exception ex, Object body, HttpHeaders headers,
+            HttpStatusCode statusCode, WebRequest request) {
+        ResponseEntity<Object> response = super.handleExceptionInternal(ex, body, headers, statusCode, request);
+        HttpStatus status = HttpStatus.resolve(statusCode.value());
+        if (response != null && status != null && response.getBody() instanceof ProblemDetail problem) {
+            problemDetailsFactory.complete(problem, status, path(request));
+        }
+        return response;
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ProblemDetail> handleUnexpected(Exception ex, HttpServletRequest request) {
         log.error("Error inesperado en {}", request.getRequestURI(), ex);

@@ -70,3 +70,16 @@ Registro de las decisiones técnicas de este servicio: contexto, decisión, alte
   - Un handler de validación en cada slice: Spring elegiría uno según el orden de los beans, lo que es difícil de predecir.
 - **Consecuencias:** un slice nuevo agrega su handler sin tocar los demás. El orden entre handlers es explícito y está protegido por tests (sin `@Order` fallan cuatro). El paquete `shared` queda restringido a infraestructura web y no tiene capas propias.
 
+## 10. Documentación de la API con SpringDoc, desactivable por perfil
+
+- **Contexto:** la documentación de endpoints y DTO se genera a partir del código con SpringDoc (OpenAPI y Swagger UI), por lo que siempre coincide con la solución. Dejarla expuesta en un despliegue real revela la superficie de la API.
+- **Decisión:** la documentación está activa por defecto, porque forma parte de lo que se entrega y quien evalúe el proyecto necesita verla al levantarlo con `docker compose up`. El entorno se declara en el `.env` con `SPRING_PROFILES_ACTIVE` (`dev` por defecto, valor que fija `.env.example`); el perfil `prod` (`application-prod.properties`) desactiva Swagger UI y `/v3/api-docs`.
+- **Alternativa descartada:** desactivarla siempre y no dejar ninguna forma de consultarla en ejecución, lo que le quita utilidad como documentación entregable.
+- **Consecuencias:** dos tests lo verifican: sin perfil (o con `dev`) el documento OpenAPI responde `200`, con el perfil `prod` ambos endpoints responden `404`.
+
+## 11. Errores estándar de Spring en español y con el mismo formato
+
+- **Contexto:** Spring responde por su cuenta algunos errores (ruta inexistente, método no permitido, tipo de contenido no soportado) con texto en inglés y sin `code`.
+- **Decisión:** el handler compartido intercepta también esas respuestas y les agrega el `code` (`NOT_FOUND`, `METHOD_NOT_ALLOWED`, `UNSUPPORTED_MEDIA_TYPE`, `BAD_REQUEST`), el `path` y un `detail` en español, para que todos los errores de la API tengan la misma forma. El `title` conserva el nombre estándar del estado HTTP.
+- **Limitación conocida:** Spring agrega el campo `instance` (con el mismo valor que `path`) al escribir cualquier respuesta `ProblemDetail`, y no se puede omitir sin reemplazar esa clase por una propia. Es inofensivo para los clientes, que ignoran campos que no conocen.
+

@@ -9,6 +9,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -206,5 +207,35 @@ class AccountControllerTest {
                 .andExpect(jsonPath("$.code").value("INTERNAL_ERROR"))
                 .andExpect(jsonPath("$.detail").value("Error interno del servidor"))
                 .andExpect(content().string(not(containsString("boom"))));
+    }
+
+    // Errores que arma Spring por su cuenta: también salen en español y con code y path
+    @Test
+    void wrongHttpMethodReturnsMethodNotAllowedInSpanish() throws Exception {
+        mockMvc.perform(get("/api/register"))
+                .andExpect(status().isMethodNotAllowed())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.code").value("METHOD_NOT_ALLOWED"))
+                .andExpect(jsonPath("$.detail").value("El método HTTP no está permitido para este recurso"))
+                .andExpect(jsonPath("$.path").value("/api/register"));
+    }
+
+    @Test
+    void unknownRouteReturnsNotFoundInSpanish() throws Exception {
+        mockMvc.perform(get("/api/no-existe"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("NOT_FOUND"))
+                .andExpect(jsonPath("$.detail").value("El recurso solicitado no existe"))
+                .andExpect(jsonPath("$.path").value("/api/no-existe"));
+    }
+
+    @Test
+    void unsupportedContentTypeReturnsUnsupportedMediaTypeInSpanish() throws Exception {
+        mockMvc.perform(post("/api/register").contentType(MediaType.TEXT_PLAIN).content("hola"))
+                .andExpect(status().isUnsupportedMediaType())
+                .andExpect(jsonPath("$.code").value("UNSUPPORTED_MEDIA_TYPE"))
+                .andExpect(jsonPath("$.detail").value("El tipo de contenido enviado no está soportado"));
+
+        verifyNoInteractions(userService);
     }
 }

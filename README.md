@@ -22,6 +22,7 @@ Completar la clave de la base en `.env`. El archivo no se versiona.
 | `CATALOGO_DB_PASSWORD` | Clave del usuario | |
 | `POSTGRES_PORT` | Puerto del host donde se publica PostgreSQL | `5432` |
 | `CATALOGO_PORT` | Puerto del host donde se publica el servicio | `8081` |
+| `SPRING_PROFILES_ACTIVE` | Entorno de ejecución: `dev` o `prod`. Con `prod` se desactiva la documentación interactiva de la API (Swagger UI y `/v3/api-docs`) | `dev` |
 
 PostgreSQL y el servicio se publican solo en `127.0.0.1`.
 
@@ -51,6 +52,10 @@ set -a; . ./.env; set +a
 ```
 
 El servicio se conecta a `localhost` en el puerto `POSTGRES_PORT`.
+
+## Documentación de la API
+
+Con el servicio en ejecución, la documentación interactiva está en `http://localhost:8081/swagger-ui.html` y el documento OpenAPI en `http://localhost:8081/v3/api-docs`. Con `SPRING_PROFILES_ACTIVE=prod` ambos quedan desactivados.
 
 ## Tests
 
