@@ -46,3 +46,14 @@ Registro de las decisiones técnicas de este servicio: contexto, decisión, alte
 - **Contexto:** el enunciado exige que el modelo y el contrato de usuarios sean compatibles con el usuario de JHipster.
 - **Decisión:** se usan solo los campos de JHipster (`login`, contraseña, `firstName`, `lastName`, `email`, `imageUrl`, `langKey`), sin agregar campos propios. Las tablas se llaman `users`, `authorities` y `user_authorities`; `login` y `email` son únicos con restricciones con nombre. `firstName` y `lastName` son opcionales, como en JHipster. Las identidades se relacionan por el `id` numérico, que no cambia nunca, por eso el email puede modificarse.
 - **Justificación:** imitar el comportamiento observable de JHipster, como pidió el profesor. Las restricciones con nombre permiten traducir las violaciones de unicidad a errores de negocio precisos.
+
+## 8. Hash de contraseñas: SHA-256 previo a BCrypt
+
+- **Contexto:** el enunciado exige almacenar las contraseñas con un mecanismo criptográfico adecuado y respetar las validaciones definidas por la cátedra, cuyo registro admite contraseñas de 4 a 100 caracteres. BCrypt solo procesa hasta 72 bytes: Spring Security 7.1.1 rechaza con una excepción lo que supere ese tamaño, y versiones anteriores lo truncaban en silencio. Los caracteres como `ñ` o las tildes pesan 2 bytes en UTF-8, por lo que ni siquiera 72 caracteres están garantizados.
+- **Decisión:** `BCryptPasswordHasher` calcula el SHA-256 de la contraseña, lo codifica en Base64 (siempre 44 caracteres) y aplica BCrypt a ese resultado. `hash` y `matches` pasan por el mismo paso. El hash BCrypt se guarda en `users.password_hash`.
+- **Alternativas descartadas:**
+  - Limitar la contraseña a 72 bytes en el registro: es más simple, pero se aparta del rango de 4 a 100 caracteres y podría rechazar una clave que se espera válida.
+  - Argon2: no tiene este límite, pero exige una librería adicional (BouncyCastle) y se aparta del algoritmo por defecto de JHipster.
+  - Dejar que BCrypt truncara: ignoraría los caracteres posteriores al byte 72 sin avisar.
+- **Consecuencias:** cualquier contraseña de hasta 100 caracteres entra completa y todos sus caracteres cuentan (hay un test que lo comprueba). Los hashes guardados solo se verifican con este mismo hasher, no con BCrypt a secas.
+
