@@ -12,6 +12,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.context.TestConstructor;
 
+import ar.edu.um.prog2.fzapata.catalogo.TestcontainersConfiguration;
 import ar.edu.um.prog2.fzapata.catalogo.usuario.domain.model.User;
 import ar.edu.um.prog2.fzapata.catalogo.usuario.infrastructure.persistence.entity.UserEntity;
 import ar.edu.um.prog2.fzapata.catalogo.usuario.infrastructure.persistence.mapper.UserMapper;
@@ -20,7 +21,7 @@ import lombok.RequiredArgsConstructor;
 
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-@Import({JpaUserRepositoryAdapter.class, UserMapper.class})
+@Import({TestcontainersConfiguration.class, JpaUserRepositoryAdapter.class, UserMapper.class})
 @TestConstructor(autowireMode = TestConstructor.AutowireMode.ALL)
 @RequiredArgsConstructor
 class JpaUserRepositoryAdapterTest {

@@ -9,24 +9,6 @@ on:
 jobs:
   analyze:
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:18
-        env:
-          POSTGRES_USER: catalogo_user
-          POSTGRES_PASSWORD: ci-password
-          POSTGRES_DB: catalogo_db
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U catalogo_user -d catalogo_db"
-          --health-interval 5s
-          --health-timeout 3s
-          --health-retries 10
-    env:
-      CATALOGO_DB_NAME: catalogo_db
-      CATALOGO_DB_USER: catalogo_user
-      CATALOGO_DB_PASSWORD: ci-password
     steps:
       - uses: actions/checkout@v7
         with:

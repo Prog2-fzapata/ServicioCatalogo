@@ -51,3 +51,11 @@ set -a; . ./.env; set +a
 ```
 
 El servicio se conecta a `localhost` en el puerto `POSTGRES_PORT`.
+
+## Tests
+
+```bash
+./mvnw verify
+```
+
+Los tests de integración levantan su propio PostgreSQL 18 en un contenedor descartable (Testcontainers), así que solo requieren Docker en ejecución; no usan el `.env` ni la base del compose.
