@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -97,7 +98,7 @@ class RegisterUserUseCaseImplTest {
         useCase.registerUser(request("dos", "dos@mail.com", "  "), "clave123");
 
         ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
-        verify(userRepository, org.mockito.Mockito.times(2)).create(captor.capture());
+        verify(userRepository, times(2)).create(captor.capture());
         assertThat(captor.getAllValues()).extracting(User::getLangKey).containsExactly("en", "es");
     }
 
@@ -106,7 +107,9 @@ class RegisterUserUseCaseImplTest {
         // El doble solo responde true al login en minúsculas: comprueba también la normalización
         when(userRepository.existsByLogin("maria.perez")).thenReturn(true);
 
-        assertThatThrownBy(() -> useCase.registerUser(request("MARIA.PEREZ", "nuevo@mail.com", null), "clave123"))
+        User duplicated = request("MARIA.PEREZ", "nuevo@mail.com", null);
+
+        assertThatThrownBy(() -> useCase.registerUser(duplicated, "clave123"))
                 .isInstanceOf(LoginAlreadyUsedException.class);
 
         verify(passwordHasher, never()).hash(any());
@@ -118,7 +121,9 @@ class RegisterUserUseCaseImplTest {
         // Ídem para el email: el pedido llega con mayúsculas
         when(userRepository.existsByEmail("maria@mail.com")).thenReturn(true);
 
-        assertThatThrownBy(() -> useCase.registerUser(request("nuevo", "MARIA@mail.com", null), "clave123"))
+        User duplicated = request("nuevo", "MARIA@mail.com", null);
+
+        assertThatThrownBy(() -> useCase.registerUser(duplicated, "clave123"))
                 .isInstanceOf(EmailAlreadyUsedException.class);
 
         verify(passwordHasher, never()).hash(any());

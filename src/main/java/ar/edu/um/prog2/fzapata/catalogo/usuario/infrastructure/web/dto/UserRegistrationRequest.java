@@ -18,8 +18,9 @@ import lombok.Setter;
 @AllArgsConstructor
 public class UserRegistrationRequest {
 
-    // Mismo patrón de login que JHipster
-    public static final String LOGIN_REGEX = "^(?>[a-zA-Z0-9!$&*+=?^_`{|}~.-]+@[a-zA-Z0-9-]+(?:\\.[a-zA-Z0-9-]+)*)|(?>[_.@A-Za-z0-9-]+)$";
+    // Patrón de login de JHipster: algo con forma de email o una palabra de letras, números y _ . @ -.
+    // Alternativas agrupadas y sin repetir grupos, para evitar el desborde de pila con entradas largas
+    public static final String LOGIN_REGEX = "^(?:[a-zA-Z0-9!$&*+=?^_`{|}~.-]+@[a-zA-Z0-9.-]+|[_.@A-Za-z0-9-]+)$";
 
     @NotBlank(message = "El login es obligatorio")
     @Size(min = 3, max = 50, message = "El login debe tener entre 3 y 50 caracteres")

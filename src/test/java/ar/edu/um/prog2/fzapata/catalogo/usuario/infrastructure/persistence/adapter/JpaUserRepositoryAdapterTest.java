@@ -100,11 +100,11 @@ class JpaUserRepositoryAdapterTest {
         adapter.create(newUser("ana", "ana@mail.com"));
         entityManager.flush();
 
-        // El nombre de la restricción es el que usará el manejo de errores para distinguir login de email
-        assertThatThrownBy(() -> {
-            adapter.create(newUser("ana", "ana2@mail.com"));
-            entityManager.flush();
-        }).isInstanceOf(DataIntegrityViolationException.class)
+        User duplicated = newUser("ana", "ana2@mail.com");
+
+        // El nombre de la restricción es el que usa el manejo de errores para distinguir login de email
+        assertThatThrownBy(() -> adapter.create(duplicated))
+                .isInstanceOf(DataIntegrityViolationException.class)
                 .hasMessageContaining("uk_users_login");
     }
 
@@ -113,10 +113,10 @@ class JpaUserRepositoryAdapterTest {
         adapter.create(newUser("luis", "luis@mail.com"));
         entityManager.flush();
 
-        assertThatThrownBy(() -> {
-            adapter.create(newUser("luis2", "luis@mail.com"));
-            entityManager.flush();
-        }).isInstanceOf(DataIntegrityViolationException.class)
+        User duplicated = newUser("luis2", "luis@mail.com");
+
+        assertThatThrownBy(() -> adapter.create(duplicated))
+                .isInstanceOf(DataIntegrityViolationException.class)
                 .hasMessageContaining("uk_users_email");
     }
 }

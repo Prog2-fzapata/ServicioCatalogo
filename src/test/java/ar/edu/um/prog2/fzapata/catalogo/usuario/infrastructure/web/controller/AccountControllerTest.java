@@ -121,6 +121,8 @@ class AccountControllerTest {
     @CsvSource({
             "login,ab",
             "login,con espacio",
+            "login,bad!login",
+            "login,ñandu",
             "password,abc",
             "email,no-es-un-email",
             "langKey,e"
@@ -135,6 +137,15 @@ class AccountControllerTest {
                 .andExpect(jsonPath("$.fieldErrors[0].field").value(field));
 
         verifyNoInteractions(userService);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"maria.perez", "maria_perez-1", "maria@mail.com", "a!b@dominio.com", "123"})
+    void loginsWithTheAllowedShapesAreAccepted(String login) throws Exception {
+        Map<String, String> request = validRequest();
+        request.put("login", login);
+
+        register(json(request)).andExpect(status().isCreated());
     }
 
     @Test

@@ -68,9 +68,9 @@ class AccountRegistrationIntegrationTest {
         Map<String, Object> row = jdbcTemplate.queryForMap(
                 "select password_hash, activated, email, lang_key from users where login = 'maria.perez'");
         assertThat((String) row.get("password_hash")).startsWith("$2a$10$").doesNotContain("clave123");
-        assertThat(row.get("activated")).isEqualTo(true);
-        assertThat(row.get("email")).isEqualTo("maria@mail.com");
-        assertThat(row.get("lang_key")).isEqualTo("es");
+        assertThat(row).containsEntry("activated", true)
+                .containsEntry("email", "maria@mail.com")
+                .containsEntry("lang_key", "es");
 
         // Dentro de la transacción del test, Hibernate escribe los roles recién al hacer flush
         entityManager.flush();
