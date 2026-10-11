@@ -11,7 +11,9 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import ar.edu.um.prog2.fzapata.catalogo.shared.web.ProblemDetailsFactory;
 import ar.edu.um.prog2.fzapata.catalogo.usuario.application.exception.EmailAlreadyUsedException;
+import ar.edu.um.prog2.fzapata.catalogo.usuario.application.exception.InvalidCredentialsException;
 import ar.edu.um.prog2.fzapata.catalogo.usuario.application.exception.LoginAlreadyUsedException;
+import ar.edu.um.prog2.fzapata.catalogo.usuario.application.exception.UserNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -39,6 +41,19 @@ public class UserExceptionHandler {
     public ResponseEntity<ProblemDetail> handleEmailAlreadyUsed(EmailAlreadyUsedException ex,
             HttpServletRequest request) {
         return problemDetailsFactory.response(HttpStatus.BAD_REQUEST, "EMAIL_ALREADY_USED", ex.getMessage(),
+                request.getRequestURI());
+    }
+
+    @ExceptionHandler(InvalidCredentialsException.class)
+    public ResponseEntity<ProblemDetail> handleInvalidCredentials(InvalidCredentialsException ex,
+            HttpServletRequest request) {
+        return problemDetailsFactory.response(HttpStatus.UNAUTHORIZED, "INVALID_CREDENTIALS", ex.getMessage(),
+                request.getRequestURI());
+    }
+
+    @ExceptionHandler(UserNotFoundException.class)
+    public ResponseEntity<ProblemDetail> handleUserNotFound(UserNotFoundException ex, HttpServletRequest request) {
+        return problemDetailsFactory.response(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", ex.getMessage(),
                 request.getRequestURI());
     }
 

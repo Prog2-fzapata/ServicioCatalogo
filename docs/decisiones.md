@@ -83,3 +83,43 @@ Registro de las decisiones técnicas de este servicio: contexto, decisión, alte
 - **Decisión:** el handler compartido intercepta también esas respuestas y les agrega el `code` (`NOT_FOUND`, `METHOD_NOT_ALLOWED`, `UNSUPPORTED_MEDIA_TYPE`, `BAD_REQUEST`), el `path` y un `detail` en español, para que todos los errores de la API tengan la misma forma. El `title` conserva el nombre estándar del estado HTTP.
 - **Limitación conocida:** Spring agrega el campo `instance` (con el mismo valor que `path`) al escribir cualquier respuesta `ProblemDetail`, y no se puede omitir sin reemplazar esa clase por una propia. Es inofensivo para los clientes, que ignoran campos que no conocen.
 
+## 12. JWT firmado con HS512 y secreto compartido
+
+- **Contexto:** el servicio emite el JWT de usuario y turnos lo valida; ambos deben coincidir en la clave sin que la clave viaje por la red ni se versione.
+- **Decisión:** firma HMAC con **HS512**. La clave es una variable de entorno (`JWT_SECRET`, Base64, al menos 512 bits, generada con `openssl rand -base64 64`) y turnos usa el mismo valor. Si la clave falta, no es Base64 o es corta, la aplicación no arranca. El decoder solo acepta HS512. Librería: `oauth2-resource-server` de Spring Security (Nimbus), la misma que usa JHipster.
+- **Alternativas descartadas:**
+  - HS256: alcanza en seguridad, pero se aparta del algoritmo por defecto de JHipster (se había elegido por error creyendo lo contrario; se corrigió antes de emitir ningún token).
+  - RSA con par de claves: turnos solo tendría la clave pública y no podría fabricar tokens, pero hay que generar y distribuir archivos PEM; con dos servicios propios en el mismo entorno ese riesgo es mínimo.
+  - Una clave con valor por defecto en la configuración: un despliegue olvidado quedaría firmando con una clave pública. Por eso no hay valor por defecto.
+- **Consecuencias:** quien conozca la clave puede fabricar tokens, así que los dos `.env` deben cuidarse igual. Hay tests que rechazan tokens con otra clave, con HS256 y la clave correcta, vencidos, sin firma y con el cuerpo alterado.
+
+## 13. Contenido y vigencia del token
+
+- **Decisión:** el token lleva `sub` (login), `uid` (id numérico), `auth` (autoridades separadas por espacio), `iat` y `exp`. Dura 24 horas, o 30 días si el login pide `rememberMe`; ambos valores son propiedades (`jwt.token-validity`, `jwt.remember-me-validity`). Son los valores y el formato de JHipster.
+- **Alternativa descartada:** incluir nombre y apellido como claims. Un claim queda fijo al emitir el token: si el usuario carga su nombre después, el token viejo seguiría sin él. Turnos lo consulta en `GET /api/account` al reservar.
+- **Consecuencias:** un token no se puede revocar antes de que venza (no hay lista de tokens). Es una limitación conocida del esquema sin estado; la vigencia de 24 horas la acota.
+
+## 14. Autenticación como caso de uso propio
+
+- **Decisión:** `AuthenticateUserUseCase` busca al usuario por login y por email (sin distinguir mayúsculas), exige que esté activo, compara la contraseña con el puerto `PasswordHasher` y pide el token al puerto `TokenIssuer`, que implementa `JwtTokenIssuer` en infraestructura. No usa el `AuthenticationManager` de Spring Security.
+- **Alternativa descartada:** el flujo estándar de Spring (`UserDetailsService` + `AuthenticationManager`): resuelve lo mismo, pero obliga a que las clases de Spring Security aparezcan en el dominio o a duplicar al usuario; con el caso de uso, el dominio sigue sin conocer el framework.
+- **Consecuencias:** usuario inexistente, contraseña incorrecta y cuenta inactiva dan el mismo `401 INVALID_CREDENTIALS`, para no revelar cuál falló.
+
+## 15. Login y email que se confunden
+
+- **Contexto:** el patrón de login de JHipster admite logins con forma de email, así que un mismo texto podía ser el login de un usuario y el email de otro. Alguien podía registrar como login el email de otra persona y bloquearle el ingreso por email; y si elegía la misma contraseña que ella usa, hacerla entrar a su cuenta sin que lo note.
+- **Decisión:** dos niveles.
+  - **Prevención (al escribir):** el registro y `POST /api/account` rechazan un login igual al email de otro usuario y un email igual al login de otro (`LOGIN_ALREADY_USED` y `EMAIL_ALREADY_USED`, los mismos códigos de siempre). El propio usuario sí puede usar el mismo texto como login y como email.
+  - **Respaldo (al ingresar):** si de todos modos hubiera dos cuentas para el mismo texto (dos registros simultáneos, datos cargados por otra vía), se prueba la contraseña contra las dos y entra la que la acierte; si acertaran ambas, gana el login. Un mismo usuario hallado por login y por email se verifica una sola vez, porque el hash es costoso.
+- **Alternativas descartadas:**
+  - Resolverlo solo al ingresar, sin prevenir al escribir: deja abierto el caso de la cuenta equivocada.
+  - Prohibir `@` en el login: es lo más simple, pero se aparta del patrón de login de JHipster.
+- **Consecuencias:** la base no puede garantizar con una restricción única que un valor no se repita entre dos columnas distintas, así que dos registros opuestos en el mismo instante podrían colarse; para ese caso queda el respaldo del ingreso.
+
+## 16. Alcance de la seguridad: validación del token desde CAT-04
+
+- **Contexto:** `GET` y `POST /api/account` necesitan saber quién llama, así que la validación del JWT no puede esperar al issue de seguridad.
+- **Decisión:** la cadena de filtros (`shared.security.SecurityConfiguration`) valida el token, no usa sesión ni CSRF (cada pedido trae su token) y protege todo salvo el registro, el login, `/actuator/health` y la documentación. El usuario de cada pedido sale siempre del claim `uid`, nunca del cuerpo ni de la URL.
+- **CSRF desactivado y SonarCloud:** CSRF protege a las aplicaciones que identifican al usuario con una cookie de sesión: otro sitio puede hacer que el navegador mande esa cookie sin que el usuario lo note. Esta API no usa sesión ni cookies; cada pedido trae su JWT en la cabecera `Authorization`, que un sitio ajeno no puede agregar. Por eso se desactiva (es lo que recomienda Spring Security para APIs con token), pero la regla `java:S4502` de Sonar lo marca como vulnerabilidad crítica sin mirar el resto de la configuración. Se dejó el `NOSONAR` en esa línea, con su motivo, en lugar de aceptar el aviso en silencio o activar CSRF sin sentido. **Alternativa descartada:** activar CSRF e ignorarlo para `/api/**`, que no protege nada (todas las rutas quedarían excluidas) y agrega configuración que no se usa. Si el profesor prefiere otro criterio, el cambio está en una línea de `SecurityConfiguration`.
+- **Limitación conocida:** los `401` y `403` que genera el filtro todavía salen sin cuerpo `problem+json`; se completan junto con CORS en el issue de seguridad siguiente.
+- **Limitación conocida:** el documento OpenAPI no declara el esquema «Bearer JWT», por lo que Swagger UI no ofrece el botón «Authorize» y no puede probar los endpoints protegidos. Está pendiente de resolver.
