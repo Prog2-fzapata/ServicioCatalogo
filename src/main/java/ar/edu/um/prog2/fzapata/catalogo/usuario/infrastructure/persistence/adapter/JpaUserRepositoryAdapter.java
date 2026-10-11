@@ -45,9 +45,10 @@ public class JpaUserRepositoryAdapter implements UserRepository {
         if (!jpaUserRepository.existsById(id)) {
             return Optional.empty();
         }
-        UserEntity entity = userMapper.toEntity(user);
-        entity.setId(id);
-        return Optional.of(userMapper.toDomainModel(jpaUserRepository.save(entity)));
+        // El id es el verificado arriba, no el que traiga el objeto
+        user.setId(id);
+        UserEntity saved = jpaUserRepository.save(userMapper.toEntity(user));
+        return Optional.of(userMapper.toDomainModel(saved));
     }
 
     @Override

@@ -113,7 +113,9 @@ class UpdateAccountUseCaseImplTest {
         when(userRepository.findById(7L)).thenReturn(Optional.of(current()));
         when(userRepository.findByEmail("otra@mail.com")).thenReturn(Optional.of(other));
 
-        assertThatThrownBy(() -> useCase.updateAccount(7L, changes("otra@mail.com", "es")))
+        User changes = changes("otra@mail.com", "es");
+
+        assertThatThrownBy(() -> useCase.updateAccount(7L, changes))
                 .isInstanceOf(EmailAlreadyUsedException.class);
 
         verify(userRepository, never()).update(any(), any());
@@ -127,7 +129,9 @@ class UpdateAccountUseCaseImplTest {
         when(userRepository.findById(7L)).thenReturn(Optional.of(current()));
         when(userRepository.findByLogin("ana@mail.com")).thenReturn(Optional.of(other));
 
-        assertThatThrownBy(() -> useCase.updateAccount(7L, changes("Ana@Mail.com", "es")))
+        User changes = changes("Ana@Mail.com", "es");
+
+        assertThatThrownBy(() -> useCase.updateAccount(7L, changes))
                 .isInstanceOf(EmailAlreadyUsedException.class);
 
         verify(userRepository, never()).update(any(), any());
@@ -144,6 +148,13 @@ class UpdateAccountUseCaseImplTest {
                 .thenAnswer(invocation -> Optional.of(invocation.getArgument(1)));
 
         assertThat(useCase.updateAccount(7L, changes("maria@mail.com", "es"))).isPresent();
+    }
+
+    @Test
+    void nullChangesAreRejectedBeforeTouchingTheRepository() {
+        assertThatThrownBy(() -> useCase.updateAccount(7L, null)).isInstanceOf(NullPointerException.class);
+
+        verify(userRepository, never()).findById(any());
     }
 
     @Test

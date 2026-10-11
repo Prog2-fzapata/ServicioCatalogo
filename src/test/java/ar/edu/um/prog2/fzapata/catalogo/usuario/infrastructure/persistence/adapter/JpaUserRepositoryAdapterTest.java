@@ -162,6 +162,21 @@ class JpaUserRepositoryAdapterTest {
         assertThat(stored.getCreatedDate()).isEqualTo(created.getCreatedDate());
     }
 
+    // El id que manda es el recibido por parámetro, aunque el objeto traiga otro
+    @Test
+    void updateUsesTheGivenIdEvenIfTheObjectCarriesAnotherOne() {
+        Long id = adapter.create(newUser("sofia", "sofia@mail.com")).getId();
+        User changes = newUser("sofia", "otro@mail.com");
+        changes.setId(-99L);
+
+        assertThat(adapter.update(id, changes)).get().extracting(User::getId).isEqualTo(id);
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(adapter.findById(id)).get().extracting(User::getEmail).isEqualTo("otro@mail.com");
+        assertThat(adapter.findById(-99L)).isEmpty();
+    }
+
     @Test
     void updateOfAMissingUserReturnsEmptyAndCreatesNothing() {
         assertThat(adapter.update(-1L, newUser("fantasma", "fantasma@mail.com"))).isEmpty();

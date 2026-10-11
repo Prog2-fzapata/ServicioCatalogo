@@ -1,6 +1,7 @@
 package ar.edu.um.prog2.fzapata.catalogo.usuario.application.usecases;
 
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Optional;
 
 import org.springframework.stereotype.Component;
@@ -19,6 +20,7 @@ public class UpdateAccountUseCaseImpl implements UpdateAccountUseCase {
 
     @Override
     public Optional<User> updateAccount(Long userId, User changes) {
+        Objects.requireNonNull(changes, "Los cambios son obligatorios");
         Optional<User> current = userRepository.findById(userId);
         if (current.isEmpty()) {
             return Optional.empty();

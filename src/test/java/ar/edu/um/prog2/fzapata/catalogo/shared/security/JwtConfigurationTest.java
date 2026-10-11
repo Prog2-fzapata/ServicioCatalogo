@@ -25,7 +25,9 @@ class JwtConfigurationTest {
 
     @Test
     void secretShorterThan512BitsIsRejected() {
-        assertThatThrownBy(() -> JwtConfiguration.secretKey(base64OfBytes(32)))
+        String shortSecret = base64OfBytes(32);
+
+        assertThatThrownBy(() -> JwtConfiguration.secretKey(shortSecret))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("512 bits");
     }
