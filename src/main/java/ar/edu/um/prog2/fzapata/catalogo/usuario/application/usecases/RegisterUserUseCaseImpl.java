@@ -29,11 +29,13 @@ public class RegisterUserUseCaseImpl implements RegisterUserUseCase {
         String login = user.getLogin().toLowerCase(Locale.ROOT);
         String email = user.getEmail().toLowerCase(Locale.ROOT);
 
-        // Se verifica antes de hashear: el hash es costoso a propósito
-        if (userRepository.existsByLogin(login)) {
+        // Se verifica antes de hashear: el hash es costoso a propósito.
+        // Un login tampoco puede ser el email de otro usuario, ni un email el login de otro: así quien
+        // escribe ese texto al ingresar nunca queda ambiguo (nadie puede apropiarse del email ajeno)
+        if (userRepository.existsByLogin(login) || userRepository.existsByEmail(login)) {
             throw new LoginAlreadyUsedException();
         }
-        if (userRepository.existsByEmail(email)) {
+        if (userRepository.existsByEmail(email) || userRepository.existsByLogin(email)) {
             throw new EmailAlreadyUsedException();
         }
 

@@ -1,5 +1,7 @@
 package ar.edu.um.prog2.fzapata.catalogo.usuario.infrastructure.persistence.adapter;
 
+import java.util.Optional;
+
 import org.springframework.stereotype.Component;
 
 import ar.edu.um.prog2.fzapata.catalogo.usuario.domain.model.User;
@@ -21,6 +23,31 @@ public class JpaUserRepositoryAdapter implements UserRepository {
         UserEntity entity = userMapper.toEntity(user);
         UserEntity saved = jpaUserRepository.save(entity);
         return userMapper.toDomainModel(saved);
+    }
+
+    @Override
+    public Optional<User> findById(Long id) {
+        return jpaUserRepository.findById(id).map(userMapper::toDomainModel);
+    }
+
+    @Override
+    public Optional<User> findByLogin(String login) {
+        return jpaUserRepository.findByLogin(login).map(userMapper::toDomainModel);
+    }
+
+    @Override
+    public Optional<User> findByEmail(String email) {
+        return jpaUserRepository.findByEmail(email).map(userMapper::toDomainModel);
+    }
+
+    @Override
+    public Optional<User> update(Long id, User user) {
+        if (!jpaUserRepository.existsById(id)) {
+            return Optional.empty();
+        }
+        UserEntity entity = userMapper.toEntity(user);
+        entity.setId(id);
+        return Optional.of(userMapper.toDomainModel(jpaUserRepository.save(entity)));
     }
 
     @Override

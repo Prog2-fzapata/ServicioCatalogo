@@ -9,6 +9,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -32,6 +33,8 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
+import ar.edu.um.prog2.fzapata.catalogo.shared.security.JwtConfiguration;
+import ar.edu.um.prog2.fzapata.catalogo.shared.security.SecurityConfiguration;
 import ar.edu.um.prog2.fzapata.catalogo.shared.web.ProblemDetailsFactory;
 import ar.edu.um.prog2.fzapata.catalogo.usuario.application.exception.EmailAlreadyUsedException;
 import ar.edu.um.prog2.fzapata.catalogo.usuario.application.exception.LoginAlreadyUsedException;
@@ -41,7 +44,7 @@ import ar.edu.um.prog2.fzapata.catalogo.usuario.infrastructure.web.mapper.Accoun
 import lombok.RequiredArgsConstructor;
 
 @WebMvcTest(AccountController.class)
-@Import({AccountDtoMapper.class, ProblemDetailsFactory.class})
+@Import({AccountDtoMapper.class, ProblemDetailsFactory.class, SecurityConfiguration.class, JwtConfiguration.class})
 @TestConstructor(autowireMode = TestConstructor.AutowireMode.ALL)
 @RequiredArgsConstructor
 class AccountControllerTest {
@@ -223,7 +226,7 @@ class AccountControllerTest {
     // Errores que arma Spring por su cuenta: también salen en español y con code y path
     @Test
     void wrongHttpMethodReturnsMethodNotAllowedInSpanish() throws Exception {
-        mockMvc.perform(get("/api/register"))
+        mockMvc.perform(get("/api/register").with(jwt()))
                 .andExpect(status().isMethodNotAllowed())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.code").value("METHOD_NOT_ALLOWED"))
@@ -233,7 +236,7 @@ class AccountControllerTest {
 
     @Test
     void unknownRouteReturnsNotFoundInSpanish() throws Exception {
-        mockMvc.perform(get("/api/no-existe"))
+        mockMvc.perform(get("/api/no-existe").with(jwt()))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("NOT_FOUND"))
                 .andExpect(jsonPath("$.detail").value("El recurso solicitado no existe"))

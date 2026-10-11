@@ -119,4 +119,54 @@ class JpaUserRepositoryAdapterTest {
                 .isInstanceOf(DataIntegrityViolationException.class)
                 .hasMessageContaining("uk_users_email");
     }
+
+    @Test
+    void findByIdLoginAndEmailReturnTheStoredUserWithItsRoles() {
+        Long id = adapter.create(newUser("juan.gomez", "juan@mail.com")).getId();
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(adapter.findById(id)).get().satisfies(user -> {
+            assertThat(user.getLogin()).isEqualTo("juan.gomez");
+            assertThat(user.getAuthorities()).containsExactly("ROLE_USER");
+        });
+        assertThat(adapter.findByLogin("juan.gomez")).get().extracting(User::getId).isEqualTo(id);
+        assertThat(adapter.findByEmail("juan@mail.com")).get().extracting(User::getId).isEqualTo(id);
+    }
+
+    @Test
+    void findersReturnEmptyWhenThereIsNoMatch() {
+        assertThat(adapter.findById(-1L)).isEmpty();
+        assertThat(adapter.findByLogin("nadie")).isEmpty();
+        assertThat(adapter.findByEmail("nadie@mail.com")).isEmpty();
+    }
+
+    @Test
+    void updateChangesTheFieldsAndKeepsPasswordRolesAndCreationDate() {
+        User created = adapter.create(newUser("sofia", "sofia@mail.com"));
+        entityManager.flush();
+        entityManager.clear();
+
+        User changes = adapter.findById(created.getId()).orElseThrow();
+        changes.setFirstName("Sofia");
+        changes.setEmail("nueva@mail.com");
+        assertThat(adapter.update(created.getId(), changes)).isPresent();
+        entityManager.flush();
+        entityManager.clear();
+
+        User stored = adapter.findById(created.getId()).orElseThrow();
+        assertThat(stored.getFirstName()).isEqualTo("Sofia");
+        assertThat(stored.getEmail()).isEqualTo("nueva@mail.com");
+        assertThat(stored.getPasswordHash()).isEqualTo(created.getPasswordHash());
+        assertThat(stored.getAuthorities()).containsExactly("ROLE_USER");
+        assertThat(stored.getCreatedDate()).isEqualTo(created.getCreatedDate());
+    }
+
+    @Test
+    void updateOfAMissingUserReturnsEmptyAndCreatesNothing() {
+        assertThat(adapter.update(-1L, newUser("fantasma", "fantasma@mail.com"))).isEmpty();
+        entityManager.flush();
+
+        assertThat(adapter.existsByLogin("fantasma")).isFalse();
+    }
 }
