@@ -58,7 +58,7 @@ El servicio se conecta a `localhost` en el puerto `POSTGRES_PORT`.
 
 Con el servicio en ejecución, la documentación interactiva está en `http://localhost:8081/swagger-ui.html` y el documento OpenAPI en `http://localhost:8081/v3/api-docs`. Con `SPRING_PROFILES_ACTIVE=prod` ambos quedan desactivados.
 
-**Limitación actual:** Swagger UI todavía no tiene el botón «Authorize», así que desde esa pantalla se pueden probar el registro y el login pero no los endpoints protegidos (`GET` y `POST /api/account`), que responden `401`. Para esos se copia el `id_token` de `/api/authenticate` y se usa con `curl` (ver la sección Autenticación).
+Para probar los endpoints protegidos desde Swagger UI: llamar a `POST /api/authenticate`, copiar el `id_token` de la respuesta, pulsar el botón **Authorize** (candado, arriba a la derecha), pegarlo y confirmar. Desde ahí todos los pedidos de la pantalla lo envían.
 
 ## Autenticación
 
@@ -73,6 +73,8 @@ curl localhost:8081/api/account -H "Authorization: Bearer <id_token>"
 ```
 
 El token dura 24 horas (30 días con `rememberMe`). `username` acepta el login o el email.
+
+Sin token, o con uno vencido, mal formado o firmado con otra clave, la respuesta es `401` en `application/problem+json` con `code` `UNAUTHORIZED` y la cabecera `WWW-Authenticate: Bearer`; no se informa el motivo. Un usuario autenticado sin el rol necesario recibe `403` con `code` `FORBIDDEN`.
 
 ## Tests
 
