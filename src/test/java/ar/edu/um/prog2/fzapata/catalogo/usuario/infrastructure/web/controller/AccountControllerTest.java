@@ -34,6 +34,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
 import ar.edu.um.prog2.fzapata.catalogo.shared.security.JwtConfiguration;
+import ar.edu.um.prog2.fzapata.catalogo.shared.security.ProblemDetailsSecurityHandler;
 import ar.edu.um.prog2.fzapata.catalogo.shared.security.SecurityConfiguration;
 import ar.edu.um.prog2.fzapata.catalogo.shared.web.ProblemDetailsFactory;
 import ar.edu.um.prog2.fzapata.catalogo.usuario.application.exception.EmailAlreadyUsedException;
@@ -44,7 +45,8 @@ import ar.edu.um.prog2.fzapata.catalogo.usuario.infrastructure.web.mapper.Accoun
 import lombok.RequiredArgsConstructor;
 
 @WebMvcTest(AccountController.class)
-@Import({AccountDtoMapper.class, ProblemDetailsFactory.class, SecurityConfiguration.class, JwtConfiguration.class})
+@Import({AccountDtoMapper.class, ProblemDetailsFactory.class, SecurityConfiguration.class, JwtConfiguration.class,
+        ProblemDetailsSecurityHandler.class})
 @TestConstructor(autowireMode = TestConstructor.AutowireMode.ALL)
 @RequiredArgsConstructor
 class AccountControllerTest {
