@@ -44,6 +44,15 @@ public class ProblemDetailsFactory {
         return response(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", "Error interno del servidor", path);
     }
 
+    public ResponseEntity<ProblemDetail> unauthorized(String path) {
+        return response(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED",
+                "Falta el token de autenticación o no es válido", path);
+    }
+
+    public ResponseEntity<ProblemDetail> forbidden(String path) {
+        return response(HttpStatus.FORBIDDEN, "FORBIDDEN", "No tiene permiso para realizar esta operación", path);
+    }
+
     private Standard standardFor(HttpStatus status) {
         return switch (status) {
             case BAD_REQUEST -> new Standard("BAD_REQUEST", "La solicitud no es válida");

@@ -10,6 +10,7 @@ import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -60,6 +61,13 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             problemDetailsFactory.complete(problem, status, path(request));
         }
         return response;
+    }
+
+    // La seguridad por método (@PreAuthorize) lanza la excepción dentro del controller: sin este handler
+    // la atraparía el genérico de abajo y devolvería 500 en lugar de 403
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ProblemDetail> handleAccessDenied(HttpServletRequest request) {
+        return problemDetailsFactory.forbidden(request.getRequestURI());
     }
 
     @ExceptionHandler(Exception.class)
