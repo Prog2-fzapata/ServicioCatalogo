@@ -137,3 +137,37 @@ Registro de las decisiones técnicas de este servicio: contexto, decisión, alte
   - Un `code` distinto por motivo (`TOKEN_EXPIRED`, `INVALID_TOKEN`): el contrato dice «sin garantía» para estos códigos y la app actúa igual en todos los casos.
 - **CORS:** queda fuera por ahora. CORS lo aplican los navegadores y el único cliente es la app Android, así que no hay ningún origen que permitir. Si se suma un cliente web, se agrega una variable de entorno con la lista de orígenes (vacía por defecto).
 - **Pruebas:** `SecurityRejectionTest` ejercita el `401` (sin token, mal formado, vencido, otra clave) y el `403` con un controller de prueba que pide `ROLE_ADMIN`, porque ningún endpoint real exige un rol todavía. Se comprobó que fallan si se quita el handler del `403` (da `500`) o el entry point del filtro (aparece el motivo en la cabecera).
+
+## 18. Esquema de la copia local del catálogo (migración V2)
+
+- **Contexto:** el servicio guarda una copia del catálogo de la cátedra (categorías, profesionales y horarios) y el estado de la sincronización. Las clases Java de esas tablas llegan con los casos de uso que las usan (sincronización y búsqueda); esta migración fija el esquema antes.
+- **Decisión:**
+  - Tablas `professional_categories`, `professionals`, `weekly_schedules`, `sync_state` y `processed_events`. Los nombres van en plural, como pide la convención de la cátedra para las entities y como `users`; `sync_state` queda en singular porque es una sola fila.
+  - Los ids de categoría, profesional y horario son los de la cátedra y no se generan, para poder aplicar cambios por id. Las bajas son lógicas (`enabled = false`): no se borran filas.
+  - Claves foráneas normales (profesional a categoría, horario a profesional) con un índice en cada una, porque PostgreSQL no los crea solo.
+  - `day_of_week` es `VARCHAR` con `CHECK` de los siete valores. Los horarios exigen `end_time > start_time` y `slot_duration_minutes > 0`.
+  - `sync_state` tiene una sola fila (`CHECK (id = 1)`) creada por la propia migración, con `local_version = 0` (significa «base vacía, hace falta un snapshot») y sin datos de última sincronización. `last_sync_type` admite `FULL` o `INCREMENTAL` y `last_status`, `OK` o `ERROR`.
+  - `processed_events` usa el `eventId` como clave primaria: un evento repetido se rechaza.
+- **Alternativas descartadas:**
+  - Tipo `enum` de PostgreSQL para el día: es incómodo de modificar y no aporta nada frente a `VARCHAR` con `CHECK` con `@Enumerated(STRING)`.
+  - Sin claves foráneas, o diferibles (se comprueban al final de la transacción): la integridad queda a cargo del código. Con claves normales alcanza con aplicar siempre categorías, profesionales y horarios en ese orden. Si la sincronización lo complicara, pasar a diferibles es un cambio chico.
+  - Crear la fila de `sync_state` en la primera sincronización: cada lector tendría que manejar también el caso «no hay fila».
+  - Índices de búsqueda por nombre y categoría: dependen de las consultas reales, que se miden al implementar la búsqueda.
+- **Consecuencias:** la cátedra no documenta los largos de nombres y descripciones, así que se usaron límites amplios (255 y `TEXT`); si un dato real no entra, se amplía con otra migración. Los `VARCHAR` de `day_of_week`, `last_sync_type` y `last_status` miden lo justo para sus valores: agregar un valor nuevo exige ampliar la columna. El esquema se prueba directamente en SQL, con `CatalogSchemaTest` sobre un PostgreSQL real: se comprobó que cada restricción hace fallar al test que la cubre al quitarla de la migración.
+
+## 19. Cliente REST de la cátedra para el snapshot del catálogo
+
+- **Contexto:** el servicio necesita pedir a la cátedra el catálogo completo (`GET /api/synchronization/snapshot`, con el JWT técnico) para la sincronización completa. Es la primera comunicación saliente del servicio.
+- **Decisión:**
+  - El dominio define el puerto `out` `CatedraApiClient` (`fetchSnapshot()`), que devuelve un `CatalogSnapshot` del dominio. Su adapter, `CatedraApiClientAdapter`, usa `RestClient` de Spring sobre el cliente HTTP de Java (HTTP/1.1), sin dependencias nuevas. Los DTO de la respuesta y su mapper al dominio viven con el adapter.
+  - La configuración de conexión (`CatedraProperties` y el bean `RestClient`) está en `shared/config`, fuera de los slices, porque la usarán varios (REST hoy; Redis y Kafka después). Así lo indicó el profesor para la configuración de la cátedra; la carpeta del adapter dentro de `infrastructure` está pendiente de confirmar.
+  - `CATEDRA_BASE_URL` y `CATEDRA_JWT` son obligatorias: sin ellas el servicio no arranca, con un mensaje que nombra la propiedad. Los timeouts de conexión y de lectura son propiedades, con 3 s y 10 s por defecto.
+  - El JWT técnico llega solo por el entorno. `CatedraProperties` sobrescribe `toString()` para no mostrarlo, y los mensajes de error no incluyen el cuerpo de la respuesta ni cabeceras.
+  - Los errores se traducen por `status`, nunca por el texto del detalle: sin conexión, timeout o `5xx` es `CatedraUnavailableException`; `401` o `403` es `CatedraAuthenticationException`; cualquier otro `4xx`, un cuerpo ilegible o un snapshot con datos obligatorios ausentes es `CatedraResponseException`. Un snapshot incompleto se rechaza entero: no se aplica a medias.
+  - El cliente no reintenta: hace un intento y lanza la excepción. Quien lo llame decide qué hacer.
+- **Alternativas descartadas:**
+  - `WebClient` o OpenFeign: agregan dependencias (WebFlux u otra librería) para una aplicación bloqueante.
+  - Reintentos dentro del cliente: el snapshot es una lectura inocua y la verificación periódica de la versión ya repite el intento más tarde; reintentar acá duplicaría ese mecanismo y esconde fallos a quien llama.
+  - Configuración opcional con la sincronización desactivada: el servicio no tiene sentido sin la cátedra, y un error claro al arrancar es mejor que uno tardío.
+  - Probar contra un servidor HTTP falso o WireMock: se eligió `MockRestServiceServer`, que trae Spring y sustituye la capa HTTP, para probar la traducción de errores y la lectura de la respuesta sin dependencias ni puertos.
+- **Consecuencias:** los tests automáticos no ejercitan los timeouts reales ni la conexión de red, porque `MockRestServiceServer` no usa sockets. Se comprobaron una vez, a mano, con un servidor local que acepta la conexión y no responde (el timeout de lectura de 1 s cortó a los 1059 ms) y con un puerto cerrado: ambos dan `CatedraUnavailableException`. Contra la cátedra real el CI no puede probar (está detrás de ZeroTier). Spring ignora por defecto los campos desconocidos de la respuesta, como pide el contrato, y lo cubre un test. El JWT técnico vence al año: habrá que generar otro y reemplazarlo en `.env`.
