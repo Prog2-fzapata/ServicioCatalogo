@@ -78,6 +78,12 @@ El token dura 24 horas (30 días con `rememberMe`). `username` acepta el login o
 
 Sin token, o con uno vencido, mal formado o firmado con otra clave, la respuesta es `401` en `application/problem+json` con `code` `UNAUTHORIZED` y la cabecera `WWW-Authenticate: Bearer`; no se informa el motivo. Un usuario autenticado sin el rol necesario recibe `403` con `code` `FORBIDDEN`.
 
+## Sincronización del catálogo
+
+El servicio mantiene una copia local de las categorías, los profesionales y los horarios de la cátedra. La sincronización completa pide el snapshot (`GET /api/synchronization/snapshot`), y en una sola transacción crea o actualiza lo que llega, borra lo que ya no llega y guarda la versión. Si algo falla no cambia nada: ni los datos ni la versión. El resultado del último intento queda en la tabla `sync_state`.
+
+Por ahora solo la ejecutan los tests: los disparadores (arranque, chequeo periódico y notificación de Kafka) se agregan en los issues siguientes.
+
 ## Tests
 
 ```bash
