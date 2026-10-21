@@ -13,7 +13,7 @@ Servicio de catálogo y sincronización.
 cp .env.example .env
 ```
 
-Completar la clave de la base y generar el secreto del JWT (`openssl rand -base64 64`) en `.env`. El archivo no se versiona.
+Completar la clave de la base, generar el secreto del JWT (`openssl rand -base64 64`) y cargar la URL y el JWT técnico de la cátedra en `.env`. El archivo no se versiona.
 
 | Variable | Descripción | Por defecto |
 | --- | --- | --- |
@@ -23,6 +23,8 @@ Completar la clave de la base y generar el secreto del JWT (`openssl rand -base6
 | `POSTGRES_PORT` | Puerto del host donde se publica PostgreSQL | `5432` |
 | `CATALOGO_PORT` | Puerto del host donde se publica el servicio | `8081` |
 | `JWT_SECRET` | Clave con la que se firman los tokens (HS512): Base64 de al menos 512 bits. Si falta o es más corta, el servicio no arranca. Turnos debe usar el mismo valor | |
+| `CATEDRA_BASE_URL` | URL base de la API de la cátedra, sin `/` final. Obligatoria: sin ella el servicio no arranca | |
+| `CATEDRA_JWT` | JWT técnico de la cuenta de la cátedra (el `id_token` de su `POST /api/authenticate`). Obligatorio; vence al año, y entonces hay que generar otro y reemplazarlo. No se escribe en logs | |
 | `SPRING_PROFILES_ACTIVE` | Entorno de ejecución: `dev` o `prod`. Con `prod` se desactiva la documentación interactiva de la API (Swagger UI y `/v3/api-docs`) | `dev` |
 
 PostgreSQL y el servicio se publican solo en `127.0.0.1`.
