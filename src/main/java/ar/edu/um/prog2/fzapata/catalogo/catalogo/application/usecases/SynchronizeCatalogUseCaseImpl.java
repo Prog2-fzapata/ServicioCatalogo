@@ -26,13 +26,12 @@ public class SynchronizeCatalogUseCaseImpl implements SynchronizeCatalogUseCase 
     // y nunca aplica uno viejo encima de uno nuevo
     private final ReentrantLock lock = new ReentrantLock();
 
-    @Override
-    public SyncResult synchronizeFull() {
-        lock.lock();
+    private void recordFailure(RuntimeException original) {
         try {
-            return fetchAndApply();
-        } finally {
-            lock.unlock();
+            recordSyncFailureUseCase.recordFailure(SyncType.FULL, original);
+        } catch (RuntimeException recordingFailure) {
+            // No tapa el error original: viaja con él para que quien llama lo registre
+            original.addSuppressed(recordingFailure);
         }
     }
 
@@ -46,12 +45,13 @@ public class SynchronizeCatalogUseCaseImpl implements SynchronizeCatalogUseCase 
         }
     }
 
-    private void recordFailure(RuntimeException original) {
+    @Override
+    public SyncResult synchronizeFull() {
+        lock.lock();
         try {
-            recordSyncFailureUseCase.recordFailure(SyncType.FULL, original);
-        } catch (RuntimeException recordingFailure) {
-            // No tapa el error original: viaja con él para que quien llama lo registre
-            original.addSuppressed(recordingFailure);
+            return fetchAndApply();
+        } finally {
+            lock.unlock();
         }
     }
 }
