@@ -19,7 +19,7 @@ class CatedraSnapshotMapperTest {
 
     private static final Instant NOW = Instant.parse("2026-09-10T13:40:00Z");
 
-    private final CatedraSnapshotMapper mapper = new CatedraSnapshotMapper();
+    private final CatedraSnapshotMapper mapper = new CatedraSnapshotMapper(new CatedraEntityMapper());
 
     private CategoryResponse category() {
         return new CategoryResponse(1L, "Clinica medica", null, true, NOW, NOW);
