@@ -35,6 +35,9 @@ Completar la clave de la base, generar el secreto del JWT (`openssl rand -base64
 | `CATEDRA_REDIS_KEY_CATEGORIES` | Clave del hash con las categorías vigentes. Obligatoria | |
 | `CATEDRA_REDIS_KEY_PROFESSIONALS` | Clave del hash con los profesionales vigentes. Obligatoria | |
 | `CATEDRA_REDIS_KEY_WEEKLY_SCHEDULES` | Clave del hash con los horarios semanales vigentes. Obligatoria | |
+| `PASSWORD_ARGON2_MEMORY_KIB` | Memoria por hash de contraseña (Argon2id), en KiB. Mínimo de OWASP: 19456 (19 MiB); el servicio no arranca con menos. `.env.example` trae ese valor | |
+| `PASSWORD_ARGON2_ITERATIONS` | Pasadas del hash sobre esa memoria. Mínimo de OWASP: 2; el servicio no arranca con menos | |
+| `PASSWORD_ARGON2_PARALLELISM` | Hilos por hash. Mínimo: 1 (con la librería usada, más hilos no aceleran nada) | |
 | `SPRING_PROFILES_ACTIVE` | Entorno de ejecución: `dev` o `prod`. Con `prod` se desactiva la documentación interactiva de la API (Swagger UI y `/v3/api-docs`) | `dev` |
 
 PostgreSQL y el servicio se publican solo en `127.0.0.1`.

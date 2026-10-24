@@ -62,12 +62,13 @@ class AccountRegistrationIntegrationTest {
     }
 
     @Test
-    void registerStoresAnActiveUserWithTheUserRoleAndABcryptHash() throws Exception {
+    void registerStoresAnActiveUserWithTheUserRoleAndAnArgon2idHash() throws Exception {
         register("Maria.Perez", "Maria@Mail.com").andExpect(status().isCreated());
 
         Map<String, Object> row = jdbcTemplate.queryForMap(
                 "select password_hash, activated, email, lang_key from users where login = 'maria.perez'");
-        assertThat((String) row.get("password_hash")).startsWith("$2a$10$").doesNotContain("clave123");
+        assertThat((String) row.get("password_hash")).startsWith("$argon2id$v=19$m=19456,t=2,p=1$")
+                .doesNotContain("clave123");
         assertThat(row).containsEntry("activated", true)
                 .containsEntry("email", "maria@mail.com")
                 .containsEntry("lang_key", "es");
