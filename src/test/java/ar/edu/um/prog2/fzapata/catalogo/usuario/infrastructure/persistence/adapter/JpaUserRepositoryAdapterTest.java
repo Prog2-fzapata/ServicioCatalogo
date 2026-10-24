@@ -26,13 +26,17 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 class JpaUserRepositoryAdapterTest {
 
+    // Un hash Argon2id real: mide 97 caracteres y comprueba que la columna lo admite (la V1 solo daba 60)
+    private static final String ARGON2_HASH =
+            "$argon2id$v=19$m=19456,t=2,p=1$xawef6BKNmUHZCD6xZJkcQ$qhu+SgKYn5RZJq9qv5oVxLmBpKzdgEBtls8clvV7n5g";
+
     private final JpaUserRepositoryAdapter adapter;
     private final EntityManager entityManager;
 
     private User newUser(String login, String email) {
         return User.builder()
                 .login(login)
-                .passwordHash("$2a$10$abcdefghijklmnopqrstuuABCDEFGHIJKLMNOPQRSTUVWXYZ01234")
+                .passwordHash(ARGON2_HASH)
                 .email(email)
                 .langKey("es")
                 .activated(true)
@@ -58,7 +62,7 @@ class JpaUserRepositoryAdapterTest {
     void createStoresEveryFieldInItsColumn() {
         User toStore = User.builder()
                 .login("sofia")
-                .passwordHash("$2a$10$abcdefghijklmnopqrstuuABCDEFGHIJKLMNOPQRSTUVWXYZ01234")
+                .passwordHash(ARGON2_HASH)
                 .firstName("Sofia")
                 .lastName("Lopez")
                 .email("sofia@mail.com")
