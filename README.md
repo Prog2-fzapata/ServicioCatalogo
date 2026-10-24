@@ -25,6 +25,9 @@ Completar la clave de la base, generar el secreto del JWT (`openssl rand -base64
 | `JWT_SECRET` | Clave con la que se firman los tokens (HS512): Base64 de al menos 512 bits. Si falta o es más corta, el servicio no arranca. Turnos debe usar el mismo valor | |
 | `CATEDRA_BASE_URL` | URL base de la API de la cátedra, sin `/` final. Obligatoria: sin ella el servicio no arranca | |
 | `CATEDRA_JWT` | JWT técnico de la cuenta de la cátedra (el `id_token` de su `POST /api/authenticate`). Obligatorio; vence al año, y entonces hay que generar otro y reemplazarlo. No se escribe en logs | |
+| `PASSWORD_ARGON2_MEMORY_KIB` | Memoria por hash de contraseña (Argon2id), en KiB. Mínimo de OWASP: 19456 (19 MiB); el servicio no arranca con menos. `.env.example` trae ese valor | |
+| `PASSWORD_ARGON2_ITERATIONS` | Pasadas del hash sobre esa memoria. Mínimo de OWASP: 2; el servicio no arranca con menos | |
+| `PASSWORD_ARGON2_PARALLELISM` | Hilos por hash. Mínimo: 1 (con la librería usada, más hilos no aceleran nada) | |
 | `SPRING_PROFILES_ACTIVE` | Entorno de ejecución: `dev` o `prod`. Con `prod` se desactiva la documentación interactiva de la API (Swagger UI y `/v3/api-docs`) | `dev` |
 
 PostgreSQL y el servicio se publican solo en `127.0.0.1`.
