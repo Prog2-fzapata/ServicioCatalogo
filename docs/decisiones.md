@@ -197,3 +197,38 @@ Registro de las decisiones técnicas de este servicio: contexto, decisión, alte
   - Saltear la sincronización si ya hay una en curso: un evento que anuncia una versión nueva se perdería hasta el próximo chequeo periódico.
   - Registrar el error en la misma transacción: el rollback lo borraría.
 - **Consecuencias:** cada tabla se carga en memoria al sincronizar (alcanza para miles de filas) y, para un id nuevo, `merge` hace un `SELECT` antes del `INSERT`. Si la base está caída, el error no puede registrarse y `sync_state` conserva el estado anterior hasta la próxima sincronización. El candado en memoria vale para una instancia; con varias, el bloqueo de la base evita que se pisen pero no ahorra pedidos al snapshot.
+
+## 21. Cliente Redis de la cátedra, de solo lectura
+
+- **Contexto:** para sincronizar por incrementos y para saber si la copia local está al día, el servicio necesita leer lo que la cátedra publica en Redis (`catedra:sync:*`, anexo §14): las versiones, los cambios de cada versión y el estado vigente de las entidades. Un cambio de versión trae solo los **ids** afectados; el estado completo de cada entidad hay que leerlo aparte.
+- **Decisión:**
+  - El dominio define el puerto `out` `CatedraSyncSource` con cinco lecturas: `readMetadata()`, `readChanges(version)` y la lectura por ids de categorías, profesionales y horarios. Su adapter, `CatedraSyncSourceAdapter`, usa `StringRedisTemplate` de Spring Data Redis (Lettuce) y vive en `infrastructure/redis`.
+  - Las versiones se leen del hash `metadata` en **una sola operación**, para que la versión actual y la más antigua disponible sean consistentes entre sí. Las entidades se leen **por ids** (`HMGET`), que es lo que necesita la incremental; el estado completo viene del snapshot REST.
+  - `readChanges` devuelve vacío si la clave no existe: esa versión ya salió de la ventana que la cátedra retiene y hay que pedir un snapshot. Un id que se pide y la cátedra no publica es un fallo de contrato, igual que una clave de cambios que trae otra versión.
+  - Es **solo lectura**: la cuenta técnica puede escribir únicamente en su namespace `alumnos:*`, que este cliente no usa.
+  - La conexión se configura con las propiedades estándar de Spring Boot (`spring.data.redis.*`), alimentadas por `CATEDRA_REDIS_HOST`, `CATEDRA_REDIS_PORT`, `CATEDRA_REDIS_USERNAME` y `CATEDRA_REDIS_PASSWORD`, todas obligatorias. Los timeouts son de 3 s (conexión) y 10 s (comando), configurables. No hay clase de configuración propia.
+  - Los errores se traducen igual que en el cliente REST: un fallo de Redis (sin conexión, timeout o credenciales rechazadas) es `CatedraUnavailableException`; un JSON ilegible, un campo obligatorio ausente o un id faltante es `CatedraResponseException`. El cliente no reintenta.
+  - Los DTO del snapshot y su conversión al dominio se reutilizan: las entidades tienen la misma forma en REST y en Redis. La conversión se extrajo a `CatedraEntityMapper`, compartido por los dos adapters.
+  - El indicador de salud de Redis está **desactivado**: un Redis ajeno caído no debe volver «no saludable» al servicio, que puede seguir sirviendo el catálogo local.
+- **Alternativas descartadas:**
+  - Leer también las claves `current-version` y `oldest-available-version`: son dos lecturas que podrían ser inconsistentes entre sí; el hash `metadata` trae las dos versiones juntas.
+  - Leer los hashes completos: nadie los usa hoy. Se agrega si la sincronización incremental o la verificación periódica lo necesitan.
+  - Jedis o Lettuce sin Spring: más código y ningún beneficio.
+  - Una clase de configuración propia con las propiedades de Redis dentro de `CatedraProperties`: duplica lo que Spring Boot ya hace con `spring.data.redis.*`.
+  - Duplicar los DTO y la conversión en el paquete `redis`: dos copias de la misma lógica que habría que mantener iguales.
+  - Distinguir un fallo de credenciales de uno de red: exigiría leer el texto del error de Redis, y la regla del cliente REST es decidir por el tipo, nunca por el mensaje.
+- **Consecuencias:** el paquete `redis` depende de `client` (DTO y mapper compartidos). Las lecturas por ids no son atómicas respecto de una publicación nueva de la cátedra; la incremental lo tolera porque solo avanza la versión local cuando aplicó todos los cambios de una versión. Los tests levantan un Redis real en Docker (Testcontainers), incluido uno con un usuario de solo lectura como el de la cátedra. No se probó contra el Redis real de la cátedra (se hará en la prueba manual al final).
+
+## 22. Rutas y claves de la cátedra como configuración
+
+- **Contexto:** el cliente REST (decisión 19) y el cliente Redis (decisión 21) necesitan nombres que define la cátedra: la ruta del snapshot y las cinco claves de lectura de Redis. En CAT-07 la ruta quedó como constante del código. Si la cátedra renombra una de estas cosas, el servicio dejaría de funcionar hasta que alguien modifique, recompile y vuelva a desplegar.
+- **Decisión:**
+  - La ruta del snapshot y las cinco claves (`metadata`, el prefijo de `changes:`, categorías, profesionales y horarios) son propiedades `catedra.contract.*`, agrupadas en `CatedraContractProperties` (`shared/config`). Los adapters las reciben por el constructor y no tienen constantes con esos nombres.
+  - Salen de variables de entorno (`CATEDRA_SNAPSHOT_PATH` y `CATEDRA_REDIS_KEY_*`) que se definen en `.env` y se pasan en el `environment` de `docker-compose.yml`. Son obligatorias y no tienen valor por defecto en `application.properties`: la única fuente de verdad es el `.env`, y `.env.example` ya trae los valores del contrato v1. Si la cátedra cambia uno, se edita el `.env` y se reinicia el servicio.
+  - Si falta una o está en blanco, el servicio no arranca, igual que con la URL y el JWT de la cátedra. La ruta del snapshot además debe empezar con `/` (sin ella el pedido saldría mal formado); a las claves de Redis no se les impone ningún formato, para no volver a fijar una convención que es de la cátedra.
+  - Los tests comprueban que los adapters siguen la configuración (con nombres distintos a los del contrato v1) y que cada propiedad es obligatoria.
+- **Alternativas descartadas:**
+  - Constantes en el código: es lo más simple, pero cualquier cambio de la cátedra exige tocar el código y desplegar de nuevo.
+  - Valores por defecto en `application.properties` además del `.env`: serían dos fuentes que habría que mantener iguales.
+  - Ampliar `CatedraProperties`: mezcla la conexión (URL, JWT, timeouts) con los nombres del contrato y obliga a cambiar los tests que la construyen.
+- **Consecuencias:** quien actualice el servicio debe agregar las variables nuevas a su `.env` antes de arrancar. Si la cátedra cambiara la *forma* de un dato y no solo su nombre, igual hace falta tocar el código: esta decisión cubre los nombres, no el formato. El mismo criterio se aplica a los topics de Kafka cuando se implemente el consumidor.

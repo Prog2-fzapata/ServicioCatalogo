@@ -26,19 +26,27 @@ import ar.edu.um.prog2.fzapata.catalogo.catalogo.application.exception.CatedraRe
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.application.exception.CatedraUnavailableException;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.CatalogSnapshot;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.WeeklySchedule;
+import ar.edu.um.prog2.fzapata.catalogo.shared.config.CatedraContractFixtures;
+import ar.edu.um.prog2.fzapata.catalogo.shared.config.CatedraContractProperties;
 
 class CatedraApiClientAdapterTest {
 
     private static final String SNAPSHOT_URL = "http://catedra.test/api/synchronization/snapshot";
 
     private MockRestServiceServer server;
+    private RestClient restClient;
     private CatedraApiClientAdapter adapter;
 
     @BeforeEach
     void setUp() {
         RestClient.Builder builder = RestClient.builder().baseUrl("http://catedra.test");
         server = MockRestServiceServer.bindTo(builder).build();
-        adapter = new CatedraApiClientAdapter(builder.build(), new CatedraSnapshotMapper());
+        restClient = builder.build();
+        adapter = adapterWith(CatedraContractFixtures.v1());
+    }
+
+    private CatedraApiClientAdapter adapterWith(CatedraContractProperties contract) {
+        return new CatedraApiClientAdapter(restClient, new CatedraSnapshotMapper(new CatedraEntityMapper()), contract);
     }
 
     private String snapshotJson(String scheduleTimes, String extraFields) {
@@ -80,6 +88,17 @@ class CatedraApiClientAdapterTest {
                 .andRespond(withSuccess(validSnapshotJson(), MediaType.APPLICATION_JSON));
 
         adapter.fetchSnapshot();
+
+        server.verify();
+    }
+
+    // La ruta es configuración: si la cátedra la cambia, el adapter sigue la propiedad y no una constante
+    @Test
+    void fetchSnapshotAsksForTheConfiguredPath() {
+        server.expect(requestTo("http://catedra.test/api/v2/sync/snapshot"))
+                .andRespond(withSuccess(validSnapshotJson(), MediaType.APPLICATION_JSON));
+
+        adapterWith(CatedraContractFixtures.renamed()).fetchSnapshot();
 
         server.verify();
     }

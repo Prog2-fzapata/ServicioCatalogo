@@ -22,6 +22,11 @@ public class RecordSyncFailureUseCaseImpl implements RecordSyncFailureUseCase {
     private final SyncStateRepository syncStateRepository;
     private final Clock clock;
 
+    private String describe(Throwable cause) {
+        String text = cause.getClass().getSimpleName() + ": " + cause.getMessage();
+        return text.length() <= MAX_ERROR_LENGTH ? text : text.substring(0, MAX_ERROR_LENGTH);
+    }
+
     // Transacción propia: la de los datos ya se deshizo y arrastraría este registro con ella.
     // No cambia localVersion: la copia quedó como estaba
     @Override
@@ -34,10 +39,5 @@ public class RecordSyncFailureUseCaseImpl implements RecordSyncFailureUseCase {
         state.setLastStatus(SyncStatus.ERROR);
         state.setLastError(describe(cause));
         syncStateRepository.save(state);
-    }
-
-    private String describe(Throwable cause) {
-        String text = cause.getClass().getSimpleName() + ": " + cause.getMessage();
-        return text.length() <= MAX_ERROR_LENGTH ? text : text.substring(0, MAX_ERROR_LENGTH);
     }
 }

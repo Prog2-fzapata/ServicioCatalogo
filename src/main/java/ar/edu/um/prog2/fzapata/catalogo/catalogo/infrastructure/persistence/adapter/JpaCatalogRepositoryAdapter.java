@@ -30,6 +30,15 @@ public class JpaCatalogRepositoryAdapter implements CatalogRepository {
     private final JpaWeeklyScheduleRepository jpaWeeklyScheduleRepository;
     private final CatalogMapper catalogMapper;
 
+    private <T> Set<Long> idsOf(List<T> items, Function<T, Long> idOf) {
+        return items.stream().map(idOf).collect(Collectors.toSet());
+    }
+
+    // Filas que están en la base y ya no llegan en el snapshot
+    private <E> List<E> missing(List<E> current, Function<E, Long> idOf, Set<Long> snapshotIds) {
+        return current.stream().filter(entity -> !snapshotIds.contains(idOf.apply(entity))).toList();
+    }
+
     @Override
     public void replaceAll(CatalogSnapshot snapshot) {
         // Se leen las tres tablas primero: las filas quedan en la memoria de Hibernate, así el save de cada
@@ -52,14 +61,5 @@ public class JpaCatalogRepositoryAdapter implements CatalogRepository {
                 idsOf(snapshot.getProfessionals(), Professional::getId)));
         jpaProfessionalCategoryRepository.deleteAll(missing(currentCategories, ProfessionalCategoryEntity::getId,
                 idsOf(snapshot.getCategories(), ProfessionalCategory::getId)));
-    }
-
-    private <T> Set<Long> idsOf(List<T> items, Function<T, Long> idOf) {
-        return items.stream().map(idOf).collect(Collectors.toSet());
-    }
-
-    // Filas que están en la base y ya no llegan en el snapshot
-    private <E> List<E> missing(List<E> current, Function<E, Long> idOf, Set<Long> snapshotIds) {
-        return current.stream().filter(entity -> !snapshotIds.contains(idOf.apply(entity))).toList();
     }
 }
