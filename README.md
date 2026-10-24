@@ -13,7 +13,7 @@ Servicio de catálogo y sincronización.
 cp .env.example .env
 ```
 
-Completar la clave de la base, generar el secreto del JWT (`openssl rand -base64 64`) y cargar la URL y el JWT técnico de la cátedra en `.env`. El archivo no se versiona.
+Completar la clave de la base, generar el secreto del JWT (`openssl rand -base64 64`) y cargar la URL, el JWT técnico y los datos de Redis de la cátedra en `.env`. Las rutas y claves del contrato de la cátedra también viven ahí (ya vienen con el valor de la versión 1 en `.env.example`): si la cátedra cambia alguna, se edita el `.env` y se reinicia, sin tocar el código. El archivo no se versiona.
 
 | Variable | Descripción | Por defecto |
 | --- | --- | --- |
@@ -25,6 +25,16 @@ Completar la clave de la base, generar el secreto del JWT (`openssl rand -base64
 | `JWT_SECRET` | Clave con la que se firman los tokens (HS512): Base64 de al menos 512 bits. Si falta o es más corta, el servicio no arranca. Turnos debe usar el mismo valor | |
 | `CATEDRA_BASE_URL` | URL base de la API de la cátedra, sin `/` final. Obligatoria: sin ella el servicio no arranca | |
 | `CATEDRA_JWT` | JWT técnico de la cuenta de la cátedra (el `id_token` de su `POST /api/authenticate`). Obligatorio; vence al año, y entonces hay que generar otro y reemplazarlo. No se escribe en logs | |
+| `CATEDRA_REDIS_HOST` | Host del Redis de la cátedra, de solo lectura. Va la IP de ZeroTier: el host que devuelve la cátedra en `integration` es interno y no se alcanza. Obligatoria | |
+| `CATEDRA_REDIS_PORT` | Puerto del Redis de la cátedra. Obligatoria | `6379` |
+| `CATEDRA_REDIS_USERNAME` | Usuario de la cuenta técnica en Redis (`redisUsername` de `integration`). Obligatoria | |
+| `CATEDRA_REDIS_PASSWORD` | Clave de esa cuenta (`redisPassword` de `integration`, solo se entrega con la cuenta en estado `PROVISIONED`). Obligatoria; no se escribe en logs | |
+| `CATEDRA_SNAPSHOT_PATH` | Ruta REST del snapshot de la cátedra; debe empezar con `/` o el servicio no arranca. Obligatoria; `.env.example` trae el valor del contrato v1 | |
+| `CATEDRA_REDIS_KEY_METADATA` | Clave del hash con las versiones que publica la cátedra. Obligatoria; `.env.example` trae el valor del contrato v1 | |
+| `CATEDRA_REDIS_KEY_CHANGES_PREFIX` | Prefijo de la clave de cambios de cada versión (el número de versión se agrega al final). Obligatoria | |
+| `CATEDRA_REDIS_KEY_CATEGORIES` | Clave del hash con las categorías vigentes. Obligatoria | |
+| `CATEDRA_REDIS_KEY_PROFESSIONALS` | Clave del hash con los profesionales vigentes. Obligatoria | |
+| `CATEDRA_REDIS_KEY_WEEKLY_SCHEDULES` | Clave del hash con los horarios semanales vigentes. Obligatoria | |
 | `SPRING_PROFILES_ACTIVE` | Entorno de ejecución: `dev` o `prod`. Con `prod` se desactiva la documentación interactiva de la API (Swagger UI y `/v3/api-docs`) | `dev` |
 
 PostgreSQL y el servicio se publican solo en `127.0.0.1`.
@@ -81,6 +91,8 @@ Sin token, o con uno vencido, mal formado o firmado con otra clave, la respuesta
 ## Sincronización del catálogo
 
 El servicio mantiene una copia local de las categorías, los profesionales y los horarios de la cátedra. La sincronización completa pide el snapshot (`GET /api/synchronization/snapshot`), y en una sola transacción crea o actualiza lo que llega, borra lo que ya no llega y guarda la versión. Si algo falla no cambia nada: ni los datos ni la versión. El resultado del último intento queda en la tabla `sync_state`.
+
+Para saber qué cambió, el servicio también lee de solo lectura el Redis de la cátedra (`catedra:sync:*`: metadata con las versiones, cambios por versión y entidades vigentes por id). Si ese Redis no responde, el servicio sigue sano y sirve el catálogo local: su estado no forma parte de `/actuator/health`.
 
 Por ahora solo la ejecutan los tests: los disparadores (arranque, chequeo periódico y notificación de Kafka) se agregan en los issues siguientes.
 
