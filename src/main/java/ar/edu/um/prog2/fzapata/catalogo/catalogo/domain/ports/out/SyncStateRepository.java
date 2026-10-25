@@ -6,6 +6,9 @@ import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.SyncState;
 
 public interface SyncStateRepository {
 
+    // Lectura sin bloqueo: sirve para decidir, no para modificar
+    Optional<SyncState> find();
+
     // Bloquea la fila hasta el fin de la transacción: serializa las sincronizaciones concurrentes
     Optional<SyncState> findForUpdate();
 

@@ -13,7 +13,7 @@ Servicio de catálogo y sincronización.
 cp .env.example .env
 ```
 
-Completar la clave de la base, generar el secreto del JWT (`openssl rand -base64 64`) y cargar la URL, el JWT técnico y los datos de Redis de la cátedra en `.env`. Las rutas y claves del contrato de la cátedra también viven ahí (ya vienen con el valor de la versión 1 en `.env.example`): si la cátedra cambia alguna, se edita el `.env` y se reinicia, sin tocar el código. El archivo no se versiona.
+Completar la clave de la base, generar el secreto del JWT (`openssl rand -base64 64`) y cargar la URL, el JWT técnico y los datos de Redis y de Kafka de la cátedra en `.env`. Las rutas y claves del contrato de la cátedra también viven ahí (ya vienen con el valor de la versión 1 en `.env.example`): si la cátedra cambia alguna, se edita el `.env` y se reinicia, sin tocar el código. El archivo no se versiona.
 
 | Variable | Descripción | Por defecto |
 | --- | --- | --- |
@@ -29,6 +29,9 @@ Completar la clave de la base, generar el secreto del JWT (`openssl rand -base64
 | `CATEDRA_REDIS_PORT` | Puerto del Redis de la cátedra. Obligatoria | `6379` |
 | `CATEDRA_REDIS_USERNAME` | Usuario de la cuenta técnica en Redis (`redisUsername` de `integration`). Obligatoria | |
 | `CATEDRA_REDIS_PASSWORD` | Clave de esa cuenta (`redisPassword` de `integration`, solo se entrega con la cuenta en estado `PROVISIONED`). Obligatoria; no se escribe en logs | |
+| `CATEDRA_KAFKA_BOOTSTRAP_SERVERS` | Servidor de Kafka de la cátedra (`kafkaBootstrapServers` de `integration`), con su puerto. Va la IP de ZeroTier, igual que en Redis. El broker no pide autenticación. Obligatoria | |
+| `CATEDRA_KAFKA_GROUP_ID` | Grupo de consumo de la cuenta técnica (`kafkaConsumerGroupId` de `integration`). Obligatoria | |
+| `CATEDRA_KAFKA_CATALOG_TOPIC` | Topic con los avisos `CatalogUpdated` (`kafkaCatalogTopic` de `integration`). Obligatoria | |
 | `CATEDRA_SNAPSHOT_PATH` | Ruta REST del snapshot de la cátedra; debe empezar con `/` o el servicio no arranca. Obligatoria; `.env.example` trae el valor del contrato v1 | |
 | `CATEDRA_REDIS_KEY_METADATA` | Clave del hash con las versiones que publica la cátedra. Obligatoria; `.env.example` trae el valor del contrato v1 | |
 | `CATEDRA_REDIS_KEY_CHANGES_PREFIX` | Prefijo de la clave de cambios de cada versión (el número de versión se agrega al final). Obligatoria | |
@@ -97,7 +100,15 @@ El servicio mantiene una copia local de las categorías, los profesionales y los
 
 Para saber qué cambió, el servicio también lee de solo lectura el Redis de la cátedra (`catedra:sync:*`: metadata con las versiones, cambios por versión y entidades vigentes por id). Si ese Redis no responde, el servicio sigue sano y sirve el catálogo local: su estado no forma parte de `/actuator/health`.
 
-Por ahora solo la ejecutan los tests: los disparadores (arranque, chequeo periódico y notificación de Kafka) se agregan en los issues siguientes.
+La cátedra avisa cada versión nueva con un evento `CatalogUpdated` en Kafka. El servicio lo consume así:
+
+1. Si ya procesó ese `eventId`, o la copia local ya tiene esa versión o una mayor, lo ignora sin pedir nada a la cátedra.
+2. Si no, pide el snapshot y, en **una sola transacción**, aplica los datos, avanza la versión y guarda el `eventId` en `processed_events`. Si algo falla no queda nada.
+3. Recién después confirma el offset en Kafka. Si el servicio cae antes, Kafka reentrega el evento y el `eventId` evita repetir el efecto.
+
+Un fallo al procesar se reintenta 3 veces, esperando 1, 2 y 4 segundos (`catedra.kafka.max-retries` y `catedra.kafka.initial-backoff`). Si se agotan los reintentos, o el mensaje no se puede interpretar, se registra un error y se pasa al siguiente mensaje: no hay cola de eventos muertos. Una notificación perdida se recupera comparando versiones, algo que se agrega en un issue siguiente junto con la sincronización incremental y la verificación periódica. Hasta entonces cada evento trae el snapshot completo.
+
+Kafka no forma parte de `/actuator/health`, igual que Redis.
 
 ## Tests
 
@@ -105,7 +116,7 @@ Por ahora solo la ejecutan los tests: los disparadores (arranque, chequeo perió
 ./mvnw verify
 ```
 
-Los tests de integración levantan su propio PostgreSQL 18 en un contenedor descartable (Testcontainers), así que solo requieren Docker en ejecución; no usan el `.env` ni la base del compose.
+Los tests de integración levantan su propio PostgreSQL 18 y, los del consumidor, un Kafka 4.0 en contenedores descartables (Testcontainers), así que solo requieren Docker en ejecución; no usan el `.env` ni la base del compose.
 
 ## Decisiones de diseño
 

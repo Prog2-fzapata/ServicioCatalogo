@@ -19,7 +19,8 @@ class CatedraContractPropertiesTest {
             "catedra.contract.redis-keys.changes-prefix", "catedra:sync:changes:",
             "catedra.contract.redis-keys.categories", "catedra:sync:professional-categories",
             "catedra.contract.redis-keys.professionals", "catedra:sync:professionals",
-            "catedra.contract.redis-keys.weekly-schedules", "catedra:sync:weekly-schedules");
+            "catedra.contract.redis-keys.weekly-schedules", "catedra:sync:weekly-schedules",
+            "catedra.contract.kafka-catalog-topic", "catedra.catalog.proyecto-de-prueba");
 
     private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
             .withUserConfiguration(CatedraContractConfiguration.class);
@@ -65,7 +66,8 @@ class CatedraContractPropertiesTest {
             "catedra.contract.redis-keys.changes-prefix",
             "catedra.contract.redis-keys.categories",
             "catedra.contract.redis-keys.professionals",
-            "catedra.contract.redis-keys.weekly-schedules"})
+            "catedra.contract.redis-keys.weekly-schedules",
+            "catedra.contract.kafka-catalog-topic"})
     void contextFailsWhenAnyNameIsMissing(String missing) {
         contextRunner.withPropertyValues(valuesWithout(missing)).run(context -> assertThat(context).hasFailed());
     }
@@ -77,7 +79,8 @@ class CatedraContractPropertiesTest {
             "catedra.contract.redis-keys.changes-prefix",
             "catedra.contract.redis-keys.categories",
             "catedra.contract.redis-keys.professionals",
-            "catedra.contract.redis-keys.weekly-schedules"})
+            "catedra.contract.redis-keys.weekly-schedules",
+            "catedra.contract.kafka-catalog-topic"})
     void contextFailsWhenAnyNameIsBlank(String blank) {
         contextRunner.withPropertyValues(valuesWithout(blank)).withPropertyValues(blank + "= ")
                 .run(context -> assertThat(context).hasFailed());
