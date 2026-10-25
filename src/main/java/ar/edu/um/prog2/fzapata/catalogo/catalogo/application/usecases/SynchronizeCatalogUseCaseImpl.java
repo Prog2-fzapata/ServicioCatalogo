@@ -26,9 +26,9 @@ public class SynchronizeCatalogUseCaseImpl implements SynchronizeCatalogUseCase 
     // y nunca aplica uno viejo encima de uno nuevo
     private final ReentrantLock lock = new ReentrantLock();
 
-    private void recordFailure(RuntimeException original) {
+    private void recordFailure(SyncType type, RuntimeException original) {
         try {
-            recordSyncFailureUseCase.recordFailure(SyncType.FULL, original);
+            recordSyncFailureUseCase.recordFailure(type, original);
         } catch (RuntimeException recordingFailure) {
             // No tapa el error original: viaja con él para que quien llama lo registre
             original.addSuppressed(recordingFailure);
@@ -40,7 +40,7 @@ public class SynchronizeCatalogUseCaseImpl implements SynchronizeCatalogUseCase 
             CatalogSnapshot snapshot = catedraApiClient.fetchSnapshot();
             return applyCatalogSnapshotUseCase.applySnapshot(snapshot);
         } catch (RuntimeException failure) {
-            recordFailure(failure);
+            recordFailure(SyncType.FULL, failure);
             throw failure;
         }
     }

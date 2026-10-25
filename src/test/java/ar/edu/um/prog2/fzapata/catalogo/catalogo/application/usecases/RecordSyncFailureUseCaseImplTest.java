@@ -63,6 +63,15 @@ class RecordSyncFailureUseCaseImplTest {
     }
 
     @Test
+    void recordsOnlyTheClassNameWhenTheErrorHasNoMessage() {
+        givenState(SyncState.builder().build());
+
+        useCase.recordFailure(SyncType.FULL, new IllegalStateException());
+
+        assertThat(savedState().getLastError()).isEqualTo("IllegalStateException");
+    }
+
+    @Test
     void cutsAVeryLongErrorMessage() {
         givenState(SyncState.builder().build());
 
