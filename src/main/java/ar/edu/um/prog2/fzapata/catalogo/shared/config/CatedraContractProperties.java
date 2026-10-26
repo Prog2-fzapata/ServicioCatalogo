@@ -15,7 +15,9 @@ import jakarta.validation.constraints.Pattern;
 public record CatedraContractProperties(
         // Ruta REST del snapshot (variable CATEDRA_SNAPSHOT_PATH): sin la "/" inicial el pedido saldría mal formado
         @NotBlank @Pattern(regexp = "/.+", message = "debe empezar con / y tener algo después") String snapshotPath,
-        @Valid @NotNull RedisKeys redisKeys) {
+        @Valid @NotNull RedisKeys redisKeys,
+        // Topic de Kafka con los CatalogUpdated (variable CATEDRA_KAFKA_CATALOG_TOPIC): lo entrega "integration"
+        @NotBlank String kafkaCatalogTopic) {
 
     // Claves de lectura de la cátedra en Redis (anexo §14)
     public record RedisKeys(

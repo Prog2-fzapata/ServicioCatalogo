@@ -19,6 +19,11 @@ public class JpaSyncStateRepositoryAdapter implements SyncStateRepository {
     private final SyncStateMapper syncStateMapper;
 
     @Override
+    public Optional<SyncState> find() {
+        return jpaSyncStateRepository.findById(SyncStateEntity.SINGLE_ROW_ID).map(syncStateMapper::toDomainModel);
+    }
+
+    @Override
     public Optional<SyncState> findForUpdate() {
         return jpaSyncStateRepository.findWithLockById(SyncStateEntity.SINGLE_ROW_ID)
                 .map(syncStateMapper::toDomainModel);

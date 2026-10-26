@@ -48,6 +48,11 @@ class JpaSyncStateRepositoryAdapterTest {
     }
 
     @Test
+    void findsTheRowWithoutLockingIt() {
+        assertThat(adapter.find()).hasValueSatisfying(state -> assertThat(state.getLocalVersion()).isZero());
+    }
+
+    @Test
     void savesEveryFieldInTheSingleRow() {
         Instant at = Instant.parse("2026-10-21T15:00:00Z");
         SyncState state = adapter.findForUpdate().orElseThrow();

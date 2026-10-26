@@ -23,7 +23,9 @@ public class RecordSyncFailureUseCaseImpl implements RecordSyncFailureUseCase {
     private final Clock clock;
 
     private String describe(Throwable cause) {
-        String text = cause.getClass().getSimpleName() + ": " + cause.getMessage();
+        String name = cause.getClass().getSimpleName();
+        // Muchas excepciones no traen mensaje: evita guardar "Clase: null"
+        String text = cause.getMessage() == null ? name : name + ": " + cause.getMessage();
         return text.length() <= MAX_ERROR_LENGTH ? text : text.substring(0, MAX_ERROR_LENGTH);
     }
 

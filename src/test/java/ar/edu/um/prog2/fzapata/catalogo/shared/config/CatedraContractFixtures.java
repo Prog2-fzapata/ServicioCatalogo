@@ -11,11 +11,12 @@ public final class CatedraContractFixtures {
     public static CatedraContractProperties v1() {
         return new CatedraContractProperties("/api/synchronization/snapshot", new RedisKeys(
                 "catedra:sync:metadata", "catedra:sync:changes:", "catedra:sync:professional-categories",
-                "catedra:sync:professionals", "catedra:sync:weekly-schedules"));
+                "catedra:sync:professionals", "catedra:sync:weekly-schedules"), "catedra.catalog.proyecto-de-prueba");
     }
 
     public static CatedraContractProperties renamed() {
         return new CatedraContractProperties("/api/v2/sync/snapshot", new RedisKeys(
-                "nueva:meta", "nueva:cambios:", "nueva:categorias", "nueva:profesionales", "nueva:horarios"));
+                "nueva:meta", "nueva:cambios:", "nueva:categorias", "nueva:profesionales", "nueva:horarios"),
+                "nuevo.topic.catalogo");
     }
 }
