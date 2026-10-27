@@ -19,6 +19,7 @@ import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.SyncType;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.ports.in.ApplyCatalogEventUseCase;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.ports.in.ApplyCatalogIncrementUseCase;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.ports.in.ApplyCatalogSnapshotUseCase;
+import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.ports.in.ClearSyncErrorUseCase;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.ports.in.RecordSyncFailureUseCase;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.ports.in.SynchronizeCatalogUseCase;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.ports.out.CatedraApiClient;
@@ -38,6 +39,7 @@ public class SynchronizeCatalogUseCaseImpl implements SynchronizeCatalogUseCase 
     private final ApplyCatalogIncrementUseCase applyCatalogIncrementUseCase;
     private final ApplyCatalogEventUseCase applyCatalogEventUseCase;
     private final RecordSyncFailureUseCase recordSyncFailureUseCase;
+    private final ClearSyncErrorUseCase clearSyncErrorUseCase;
     private final ProcessedEventRepository processedEventRepository;
     private final SyncStateRepository syncStateRepository;
 
@@ -155,6 +157,8 @@ public class SynchronizeCatalogUseCaseImpl implements SynchronizeCatalogUseCase 
             return applySnapshotFor(event, "no se pudo leer Redis: " + describe(failure), failure);
         }
         if (localVersion == metadata.currentVersion()) {
+            // La cátedra respondió y la copia está al día: si quedó un error de una vuelta anterior, ya no vale
+            clearSyncErrorUseCase.clearError();
             return Optional.empty();
         }
         if (localVersion == 0) {

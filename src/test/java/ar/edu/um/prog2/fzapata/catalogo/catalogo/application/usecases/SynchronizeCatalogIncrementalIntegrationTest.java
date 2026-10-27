@@ -394,6 +394,37 @@ class SynchronizeCatalogIncrementalIntegrationTest {
         assertThat(localVersion()).isEqualTo(6);
     }
 
+    // Hallazgo de la prueba contra la cátedra real: tras una vuelta que falló por la red, la siguiente se recuperaba
+    // pero sync_state seguía en ERROR aunque la copia estaba al día
+    @Test
+    void theVersionCheckClearsAnOldErrorWhenTheCopyIsAlreadyCurrent() {
+        givenLocalCopyAtVersion(5);
+        givenRedisVersions(5, 2);
+        jdbc.sql("""
+                UPDATE sync_state SET last_status = 'ERROR', last_error = 'CatedraUnavailableException: sin conexión',
+                                      last_sync_at = TIMESTAMPTZ '2026-10-27 19:54:25+00'""").update();
+
+        assertThat(catalogService.synchronize()).isEmpty();
+
+        assertThat(jdbc.sql("SELECT last_status FROM sync_state WHERE id = 1").query(String.class).single())
+                .isEqualTo("OK");
+        assertThat(jdbc.sql("SELECT last_error FROM sync_state WHERE id = 1").query(String.class).optional())
+                .isEmpty();
+        assertThat(localVersion()).isEqualTo(5);
+    }
+
+    @Test
+    void theVersionCheckDoesNotTouchTheStateWhenThereWasNoErrorToClear() {
+        givenLocalCopyAtVersion(5);
+        givenRedisVersions(5, 2);
+        Object before = jdbc.sql("SELECT last_sync_at FROM sync_state WHERE id = 1").query().singleValue();
+
+        assertThat(catalogService.synchronize()).isEmpty();
+
+        assertThat(jdbc.sql("SELECT last_sync_at FROM sync_state WHERE id = 1").query().singleValue())
+                .isEqualTo(before);
+    }
+
     // Una transacción por versión: si la cátedra falla a mitad, lo ya aplicado se conserva y el evento no queda
     // como procesado
     @Test

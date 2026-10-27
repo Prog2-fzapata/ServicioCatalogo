@@ -43,6 +43,7 @@ import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.SyncType;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.ports.in.ApplyCatalogEventUseCase;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.ports.in.ApplyCatalogIncrementUseCase;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.ports.in.ApplyCatalogSnapshotUseCase;
+import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.ports.in.ClearSyncErrorUseCase;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.ports.in.RecordSyncFailureUseCase;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.ports.out.CatedraApiClient;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.ports.out.CatedraSyncSource;
@@ -73,6 +74,9 @@ class SynchronizeCatalogUseCaseImplTest {
     private RecordSyncFailureUseCase recordSyncFailureUseCase;
 
     @Mock
+    private ClearSyncErrorUseCase clearSyncErrorUseCase;
+
+    @Mock
     private ProcessedEventRepository processedEventRepository;
 
     @Mock
@@ -84,7 +88,7 @@ class SynchronizeCatalogUseCaseImplTest {
     void setUp() {
         useCase = new SynchronizeCatalogUseCaseImpl(catedraApiClient, catedraSyncSource, applyCatalogSnapshotUseCase,
                 applyCatalogIncrementUseCase, applyCatalogEventUseCase, recordSyncFailureUseCase,
-                processedEventRepository, syncStateRepository);
+                clearSyncErrorUseCase, processedEventRepository, syncStateRepository);
     }
 
     private CatalogSnapshot snapshotOfVersion(long version) {
@@ -190,6 +194,7 @@ class SynchronizeCatalogUseCaseImplTest {
 
         verify(catedraSyncSource, never()).readMetadata();
         verify(catedraApiClient, never()).fetchSnapshot();
+        verify(clearSyncErrorUseCase, never()).clearError();
     }
 
     @Test
@@ -199,6 +204,7 @@ class SynchronizeCatalogUseCaseImplTest {
         assertThat(useCase.synchronizeForEvent(eventOfVersion(7))).isEmpty();
 
         verify(catedraSyncSource, never()).readMetadata();
+        verify(clearSyncErrorUseCase, never()).clearError();
     }
 
     // Un evento viejo que llega tarde se resuelve contra lo que publica Redis hoy, no contra su propia versión
@@ -211,6 +217,7 @@ class SynchronizeCatalogUseCaseImplTest {
 
         verify(catedraApiClient, never()).fetchSnapshot();
         verify(applyCatalogIncrementUseCase, never()).applyIncrement(any());
+        verify(clearSyncErrorUseCase).clearError();
     }
 
     @Test
@@ -437,6 +444,7 @@ class SynchronizeCatalogUseCaseImplTest {
         verify(applyCatalogEventUseCase, never()).applyEvent(any(CatalogUpdatedEvent.class),
                 any(CatalogSnapshot.class));
         verify(processedEventRepository, never()).existsById(any());
+        verify(clearSyncErrorUseCase, never()).clearError();
     }
 
     @Test
@@ -448,6 +456,7 @@ class SynchronizeCatalogUseCaseImplTest {
 
         verify(catedraApiClient, never()).fetchSnapshot();
         verify(applyCatalogIncrementUseCase, never()).applyIncrement(any());
+        verify(clearSyncErrorUseCase).clearError();
     }
 
     // Una notificación perdida: Kafka nunca avisó de las versiones 5 a 7, pero Redis sí las tiene
@@ -469,6 +478,7 @@ class SynchronizeCatalogUseCaseImplTest {
         verify(applyCatalogEventUseCase, never()).applyEvent(any(CatalogUpdatedEvent.class),
                 any(CatalogIncrement.class));
         verify(catedraApiClient, never()).fetchSnapshot();
+        verify(clearSyncErrorUseCase, never()).clearError();
     }
 
     @Test

@@ -137,7 +137,7 @@ Kafka solo avisa: si una notificación se pierde, la copia queda atrasada. Para 
 
 Aplica la misma decisión de la tabla de arriba, sin evento que registrar: si la copia está al día no hace nada (una sola lectura a Redis), si está atrasada aplica las versiones que faltan y, **con la base vacía, trae el snapshot**; así un servicio recién instalado se llena solo, sin esperar a un evento. Comparte el candado con el consumidor de Kafka: una verificación y un evento no se cruzan.
 
-Si la cátedra o Redis no responden, la vuelta falla, se registra el error y se reintenta en la próxima; el servicio sigue sano y sirviendo la copia local. Si falló el snapshot, el error queda en la tabla `sync_state`.
+Si la cátedra o Redis no responden, la vuelta falla, se registra el error y se reintenta en la próxima; el servicio sigue sano y sirviendo la copia local. Si falló el snapshot, el error queda en la tabla `sync_state`. Cuando una vuelta posterior encuentra la copia al día, el estado vuelve a `OK` y el error se borra: `sync_state` describe cómo está la copia ahora, no el último tropiezo.
 
 Kafka no forma parte de `/actuator/health`, igual que Redis.
 
