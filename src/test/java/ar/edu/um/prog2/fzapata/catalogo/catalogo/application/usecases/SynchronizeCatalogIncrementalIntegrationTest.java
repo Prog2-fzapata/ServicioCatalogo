@@ -335,6 +335,65 @@ class SynchronizeCatalogIncrementalIntegrationTest {
         assertThat(localVersion()).isEqualTo(6);
     }
 
+    // Una notificación de Kafka perdida: nadie avisó de las versiones 5 y 6, pero la verificación las encuentra en Redis
+    @Test
+    void theVersionCheckRecoversALostNotificationAndRecordsNoEvent() {
+        givenLocalCopyAtVersion(4);
+        givenRedisVersions(6, 2);
+        givenVersionAffecting(5, List.of(2L), List.of(), List.of());
+        givenCategoryInRedis(2, true);
+        givenVersionAffecting(6, List.of(), List.of(11L), List.of());
+        givenProfessionalInRedis(11, 2, true);
+
+        Optional<SyncResult> result = catalogService.synchronize();
+
+        assertThat(result).contains(new SyncResult(4, 6, SyncType.INCREMENTAL));
+        assertThat(localVersion()).isEqualTo(6);
+        assertThat(count("professionals")).isEqualTo(2);
+        assertThat(count("processed_events")).isZero();
+        verify(catedraApiClient, never()).fetchSnapshot();
+    }
+
+    @Test
+    void theVersionCheckBringsTheSnapshotWhenTheDatabaseIsEmpty() {
+        givenRedisVersions(3, 1);
+        when(catedraApiClient.fetchSnapshot()).thenReturn(snapshot(3, List.of(category(1)),
+                List.of(professional(10, 1)), List.of(schedule(100, 10))));
+
+        Optional<SyncResult> result = catalogService.synchronize();
+
+        assertThat(result).hasValueSatisfying(applied -> {
+            assertThat(applied.type()).isEqualTo(SyncType.FULL);
+            assertThat(applied.snapshotReason()).isEqualTo("la base está vacía");
+        });
+        assertThat(localVersion()).isEqualTo(3);
+        assertThat(count("professionals")).isEqualTo(1);
+        assertThat(count("processed_events")).isZero();
+    }
+
+    @Test
+    void theVersionCheckDoesNothingWhenTheCopyIsAlreadyCurrent() {
+        givenLocalCopyAtVersion(5);
+        givenRedisVersions(5, 2);
+
+        assertThat(catalogService.synchronize()).isEmpty();
+
+        assertThat(localVersion()).isEqualTo(5);
+        verify(catedraApiClient, never()).fetchSnapshot();
+    }
+
+    @Test
+    void theVersionCheckFallsBackToTheSnapshotWhenRedisHasNoMetadata() {
+        givenLocalCopyAtVersion(4);
+        when(catedraApiClient.fetchSnapshot()).thenReturn(snapshot(6, List.of(category(1)),
+                List.of(professional(10, 1)), List.of(schedule(100, 10))));
+
+        assertThat(catalogService.synchronize()).hasValueSatisfying(applied ->
+                assertThat(applied.snapshotReason()).contains("no se pudo leer Redis"));
+
+        assertThat(localVersion()).isEqualTo(6);
+    }
+
     // Una transacción por versión: si la cátedra falla a mitad, lo ya aplicado se conserva y el evento no queda
     // como procesado
     @Test

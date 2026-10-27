@@ -15,6 +15,11 @@ public class CatalogService {
 
     private final SynchronizeCatalogUseCase synchronizeCatalogUseCase;
 
+    // Vacío no es un error: la copia local ya está al día
+    public Optional<SyncResult> synchronize() {
+        return synchronizeCatalogUseCase.synchronize();
+    }
+
     // Vacío no es un error: el evento ya estaba procesado o la copia local ya estaba al día
     public Optional<SyncResult> synchronizeForEvent(CatalogUpdatedEvent event) {
         return synchronizeCatalogUseCase.synchronizeForEvent(event);

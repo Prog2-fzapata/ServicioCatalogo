@@ -43,6 +43,17 @@ Completar la clave de la base, generar el secreto del JWT (`openssl rand -base64
 | `PASSWORD_ARGON2_PARALLELISM` | Hilos por hash. Mínimo: 1 (con la librería usada, más hilos no aceleran nada) | |
 | `SPRING_PROFILES_ACTIVE` | Entorno de ejecución: `dev` o `prod`. Con `prod` se desactiva la documentación interactiva de la API (Swagger UI y `/v3/api-docs`) | `dev` |
 
+### Parámetros de ajuste
+
+No son secretos ni dependen de la máquina, así que están **escritos en el `environment:` de `docker-compose.yml`** y no en `.env`; tampoco tienen valor por defecto en el código. Para cambiarlos se edita el compose y se reinicia. Los formatos de tiempo son `500ms`, `10s`, `5m`.
+
+| Variable | Descripción | Valor del compose |
+| --- | --- | --- |
+| `CATEDRA_SYNC_INITIAL_DELAY` | Espera desde que arranca el servicio hasta la primera verificación de versión. Si la base está vacía, esa vuelta trae el snapshot. Mínimo `0s` | `10s` |
+| `CATEDRA_SYNC_CHECK_INTERVAL` | Espera entre el fin de una verificación de versión y el comienzo de la siguiente. Mayor que cero | `5m` |
+| `CATEDRA_KAFKA_MAX_RETRIES` | Reintentos (después del primer intento) ante un fallo al procesar un evento de Kafka. `0` los desactiva | `3` |
+| `CATEDRA_KAFKA_INITIAL_BACKOFF` | Espera antes del primer reintento; cada uno espera el doble del anterior | `1s` |
+
 PostgreSQL y el servicio se publican solo en `127.0.0.1`.
 
 ## Levantar con Docker
@@ -67,10 +78,11 @@ Levantar solo la base y correr el servicio con Maven, con las variables de `.env
 ```bash
 docker compose up -d --wait postgres
 set -a; . ./.env; set +a
+export CATEDRA_KAFKA_MAX_RETRIES=3 CATEDRA_KAFKA_INITIAL_BACKOFF=1s CATEDRA_SYNC_INITIAL_DELAY=10s CATEDRA_SYNC_CHECK_INTERVAL=5m
 ./mvnw spring-boot:run
 ```
 
-El servicio se conecta a `localhost` en el puerto `POSTGRES_PORT`.
+La segunda línea de `export` repite los parámetros de ajuste del compose (ver arriba), que no están en `.env`. El servicio se conecta a `localhost` en el puerto `POSTGRES_PORT`.
 
 ## Documentación de la API
 
@@ -117,7 +129,15 @@ La cátedra avisa cada versión nueva con un evento `CatalogUpdated` en Kafka. E
 4. Si la incremental falla (falta el historial de una versión, un dato inválido, la base lo rechaza) o Redis no responde, cae al snapshot completo, que en **una sola transacción** aplica los datos, avanza la versión y guarda el `eventId`. El error de la incremental solo se registra si también falla el snapshot. El tipo del último intento queda en `sync_state`.
 5. Recién después confirma el offset en Kafka. Si el servicio cae antes, Kafka reentrega el evento y el `eventId` evita repetir el efecto.
 
-Un fallo al procesar se reintenta 3 veces, esperando 1, 2 y 4 segundos (`catedra.kafka.max-retries` y `catedra.kafka.initial-backoff`). Si se agotan los reintentos, o el mensaje no se puede interpretar, se registra un error y se pasa al siguiente mensaje: no hay cola de eventos muertos. Una notificación perdida la recupera la verificación de versión al arrancar y cada cierto tiempo, que se agrega en un issue siguiente: hasta entonces, la copia queda atrasada hasta el próximo evento.
+Un fallo al procesar se reintenta `CATEDRA_KAFKA_MAX_RETRIES` veces (3 en el compose), esperando 1, 2 y 4 segundos (`CATEDRA_KAFKA_INITIAL_BACKOFF`, que se duplica en cada reintento). Si se agotan los reintentos, o el mensaje no se puede interpretar, se registra un error y se pasa al siguiente mensaje: no hay cola de eventos muertos. Lo que una notificación perdida deja atrasado lo recupera la verificación de versión, que se explica a continuación.
+
+### Verificación de versión
+
+Kafka solo avisa: si una notificación se pierde, la copia queda atrasada. Para eso el servicio **compara su versión con la de Redis por su cuenta**, sin esperar un evento: unos segundos después de arrancar (`CATEDRA_SYNC_INITIAL_DELAY`) y después cada `CATEDRA_SYNC_CHECK_INTERVAL` (5 minutos en el compose).
+
+Aplica la misma decisión de la tabla de arriba, sin evento que registrar: si la copia está al día no hace nada (una sola lectura a Redis), si está atrasada aplica las versiones que faltan y, **con la base vacía, trae el snapshot**; así un servicio recién instalado se llena solo, sin esperar a un evento. Comparte el candado con el consumidor de Kafka: una verificación y un evento no se cruzan.
+
+Si la cátedra o Redis no responden, la vuelta falla, se registra el error y se reintenta en la próxima; el servicio sigue sano y sirviendo la copia local. Si falló el snapshot, el error queda en la tabla `sync_state`.
 
 Kafka no forma parte de `/actuator/health`, igual que Redis.
 
