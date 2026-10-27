@@ -5,6 +5,7 @@ import java.time.Clock;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import ar.edu.um.prog2.fzapata.catalogo.catalogo.application.exception.SyncStateMissingException;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.SyncState;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.SyncStatus;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.SyncType;
@@ -35,7 +36,7 @@ public class RecordSyncFailureUseCaseImpl implements RecordSyncFailureUseCase {
     @Transactional
     public void recordFailure(SyncType type, Throwable cause) {
         SyncState state = syncStateRepository.findForUpdate()
-                .orElseThrow(() -> new IllegalStateException("Falta la fila id = 1 de sync_state"));
+                .orElseThrow(SyncStateMissingException::new);
         state.setLastSyncAt(clock.instant());
         state.setLastSyncType(type);
         state.setLastStatus(SyncStatus.ERROR);

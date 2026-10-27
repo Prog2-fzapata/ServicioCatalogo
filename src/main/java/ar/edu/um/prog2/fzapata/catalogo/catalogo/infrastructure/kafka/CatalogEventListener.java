@@ -25,14 +25,17 @@ public class CatalogEventListener {
         if (result.isEmpty()) {
             log.info("Evento {} (versión {}) ignorado: ya procesado o la copia ya está al día",
                     event.eventId(), event.newVersion());
-        } else if (result.get().newVersion() < result.get().previousVersion()) {
+            return;
+        }
+        SyncResult applied = result.get();
+        if (applied.newVersion() < applied.previousVersion()) {
             // La cátedra es la fuente de verdad: se aplicó igual, pero conviene dejar rastro
             log.warn("La cátedra retrocedió de la versión {} a la {} (evento {})",
-                    result.get().previousVersion(), result.get().newVersion(), event.eventId());
-        } else {
-            log.info("Evento {} aplicado: catálogo de la versión {} a la {}",
-                    event.eventId(), result.get().previousVersion(), result.get().newVersion());
+                    applied.previousVersion(), applied.newVersion(), event.eventId());
         }
+        log.info("Evento {} aplicado como {}: catálogo de la versión {} a la {}{}", event.eventId(), applied.type(),
+                applied.previousVersion(), applied.newVersion(),
+                applied.snapshotReason() == null ? "" : " (snapshot porque " + applied.snapshotReason() + ")");
     }
 
     // El offset se confirma recién cuando el caso de uso terminó (y su transacción hizo COMMIT). Si lanza,

@@ -7,16 +7,22 @@ import java.util.function.Supplier;
 
 import org.springframework.stereotype.Component;
 
+import ar.edu.um.prog2.fzapata.catalogo.catalogo.application.exception.SyncStateMissingException;
+import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.CatalogChanges;
+import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.CatalogIncrement;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.CatalogSnapshot;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.CatalogUpdatedEvent;
+import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.SyncMetadata;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.SyncResult;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.SyncState;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.SyncType;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.ports.in.ApplyCatalogEventUseCase;
+import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.ports.in.ApplyCatalogIncrementUseCase;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.ports.in.ApplyCatalogSnapshotUseCase;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.ports.in.RecordSyncFailureUseCase;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.ports.in.SynchronizeCatalogUseCase;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.ports.out.CatedraApiClient;
+import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.ports.out.CatedraSyncSource;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.ports.out.ProcessedEventRepository;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.ports.out.SyncStateRepository;
 import lombok.RequiredArgsConstructor;
@@ -27,7 +33,9 @@ import lombok.RequiredArgsConstructor;
 public class SynchronizeCatalogUseCaseImpl implements SynchronizeCatalogUseCase {
 
     private final CatedraApiClient catedraApiClient;
+    private final CatedraSyncSource catedraSyncSource;
     private final ApplyCatalogSnapshotUseCase applyCatalogSnapshotUseCase;
+    private final ApplyCatalogIncrementUseCase applyCatalogIncrementUseCase;
     private final ApplyCatalogEventUseCase applyCatalogEventUseCase;
     private final RecordSyncFailureUseCase recordSyncFailureUseCase;
     private final ProcessedEventRepository processedEventRepository;
@@ -64,14 +72,85 @@ public class SynchronizeCatalogUseCaseImpl implements SynchronizeCatalogUseCase 
         }
     }
 
-    // Si la copia ya tiene esa versión (o una mayor) el evento no trae nada nuevo: se evita el pedido HTTP
-    private boolean hasNothingToApply(CatalogUpdatedEvent event) {
-        if (processedEventRepository.existsById(event.eventId())) {
-            return true;
-        }
+    private long localVersion() {
         SyncState state = syncStateRepository.find()
-                .orElseThrow(() -> new IllegalStateException("Falta la fila id = 1 de sync_state"));
-        return state.getLocalVersion() >= event.newVersion();
+                .orElseThrow(SyncStateMissingException::new);
+        return state.getLocalVersion();
+    }
+
+    private String describe(RuntimeException failure) {
+        String name = failure.getClass().getSimpleName();
+        return failure.getMessage() == null ? name : name + ": " + failure.getMessage();
+    }
+
+    private CatalogIncrement readIncrement(long version) {
+        CatalogChanges changes = catedraSyncSource.readChanges(version).orElseThrow(
+                () -> new IllegalStateException("La cátedra ya no conserva los cambios de la versión " + version));
+        return CatalogIncrement.builder()
+                .version(version)
+                .categories(catedraSyncSource.readCategories(changes.categoryIds()))
+                .professionals(catedraSyncSource.readProfessionals(changes.professionalIds()))
+                .weeklySchedules(catedraSyncSource.readWeeklySchedules(changes.weeklyScheduleIds()))
+                .build();
+    }
+
+    // Si el snapshot también falla, el error de la incremental viaja con él para que quien llama lo registre
+    private Optional<SyncResult> applySnapshotFor(CatalogUpdatedEvent event, String reason, RuntimeException cause) {
+        try {
+            return fetchAndApply(snapshot -> applyCatalogEventUseCase.applyEvent(event, snapshot))
+                    .map(result -> result.withSnapshotReason(reason));
+        } catch (RuntimeException failure) {
+            if (cause != null) {
+                failure.addSuppressed(cause);
+            }
+            throw failure;
+        }
+    }
+
+    // Una transacción por versión: si la cátedra falla a mitad queda lo ya aplicado. El evento se registra en la
+    // última, para que nunca figure como procesado uno que no se terminó de aplicar
+    private Optional<SyncResult> applyIncrementsFor(CatalogUpdatedEvent event, long localVersion, long currentVersion) {
+        try {
+            for (long version = localVersion + 1; version < currentVersion; version++) {
+                applyCatalogIncrementUseCase.applyIncrement(readIncrement(version));
+            }
+            return applyCatalogEventUseCase.applyEvent(event, readIncrement(currentVersion))
+                    .map(last -> new SyncResult(localVersion, last.newVersion(), SyncType.INCREMENTAL));
+        } catch (RuntimeException failure) {
+            // Cualquier fallo de la incremental (falta historial, dato inválido, la base lo rechaza) cae al snapshot
+            return applySnapshotFor(event, "falló la incremental: " + describe(failure), failure);
+        }
+    }
+
+    // La versión local que importa es la actual de Redis, no la del evento: un evento viejo que llega tarde no
+    // hace nada, y una versión local mayor es un retroceso de la cátedra, que es la fuente de verdad (D60)
+    private Optional<SyncResult> synchronizeFor(CatalogUpdatedEvent event) {
+        long localVersion = localVersion();
+        // Una versión local igual a la del evento ya lo aplicó; una mayor no se ignora (puede ser un retroceso)
+        if (processedEventRepository.existsById(event.eventId()) || localVersion == event.newVersion()) {
+            return Optional.empty();
+        }
+        SyncMetadata metadata;
+        try {
+            metadata = catedraSyncSource.readMetadata();
+        } catch (RuntimeException failure) {
+            return applySnapshotFor(event, "no se pudo leer Redis: " + describe(failure), failure);
+        }
+        if (localVersion == metadata.currentVersion()) {
+            return Optional.empty();
+        }
+        if (localVersion == 0) {
+            return applySnapshotFor(event, "la base está vacía", null);
+        }
+        if (localVersion > metadata.currentVersion()) {
+            return applySnapshotFor(event, "la cátedra retrocedió de la versión " + localVersion + " a la "
+                    + metadata.currentVersion(), null);
+        }
+        if (localVersion < metadata.oldestAvailableVersion()) {
+            return applySnapshotFor(event, "la versión local " + localVersion + " es anterior a la más antigua "
+                    + "disponible (" + metadata.oldestAvailableVersion() + ")", null);
+        }
+        return applyIncrementsFor(event, localVersion, metadata.currentVersion());
     }
 
     @Override
@@ -81,8 +160,6 @@ public class SynchronizeCatalogUseCaseImpl implements SynchronizeCatalogUseCase 
 
     @Override
     public Optional<SyncResult> synchronizeForEvent(CatalogUpdatedEvent event) {
-        return withLock(() -> hasNothingToApply(event)
-                ? Optional.empty()
-                : fetchAndApply(snapshot -> applyCatalogEventUseCase.applyEvent(event, snapshot)));
+        return withLock(() -> synchronizeFor(event));
     }
 }

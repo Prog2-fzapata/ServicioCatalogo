@@ -7,6 +7,7 @@ import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Component;
 
+import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.CatalogIncrement;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.CatalogSnapshot;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.Professional;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.ProfessionalCategory;
@@ -39,6 +40,14 @@ public class JpaCatalogRepositoryAdapter implements CatalogRepository {
         return current.stream().filter(entity -> !snapshotIds.contains(idOf.apply(entity))).toList();
     }
 
+    // Se escribe de padres a hijos por las claves foráneas
+    private void saveAll(List<ProfessionalCategory> categories, List<Professional> professionals,
+            List<WeeklySchedule> schedules) {
+        jpaProfessionalCategoryRepository.saveAll(categories.stream().map(catalogMapper::toEntity).toList());
+        jpaProfessionalRepository.saveAll(professionals.stream().map(catalogMapper::toEntity).toList());
+        jpaWeeklyScheduleRepository.saveAll(schedules.stream().map(catalogMapper::toEntity).toList());
+    }
+
     @Override
     public void replaceAll(CatalogSnapshot snapshot) {
         // Se leen las tres tablas primero: las filas quedan en la memoria de Hibernate, así el save de cada
@@ -47,19 +56,20 @@ public class JpaCatalogRepositoryAdapter implements CatalogRepository {
         List<ProfessionalEntity> currentProfessionals = jpaProfessionalRepository.findAll();
         List<WeeklyScheduleEntity> currentSchedules = jpaWeeklyScheduleRepository.findAll();
 
-        // Se escribe de padres a hijos y se borra de hijos a padres por las claves foráneas
-        jpaProfessionalCategoryRepository.saveAll(
-                snapshot.getCategories().stream().map(catalogMapper::toEntity).toList());
-        jpaProfessionalRepository.saveAll(
-                snapshot.getProfessionals().stream().map(catalogMapper::toEntity).toList());
-        jpaWeeklyScheduleRepository.saveAll(
-                snapshot.getWeeklySchedules().stream().map(catalogMapper::toEntity).toList());
+        saveAll(snapshot.getCategories(), snapshot.getProfessionals(), snapshot.getWeeklySchedules());
 
+        // Se borra de hijos a padres por las claves foráneas
         jpaWeeklyScheduleRepository.deleteAll(missing(currentSchedules, WeeklyScheduleEntity::getId,
                 idsOf(snapshot.getWeeklySchedules(), WeeklySchedule::getId)));
         jpaProfessionalRepository.deleteAll(missing(currentProfessionals, ProfessionalEntity::getId,
                 idsOf(snapshot.getProfessionals(), Professional::getId)));
         jpaProfessionalCategoryRepository.deleteAll(missing(currentCategories, ProfessionalCategoryEntity::getId,
                 idsOf(snapshot.getCategories(), ProfessionalCategory::getId)));
+    }
+
+    // Pocas filas por versión: cada save consulta la suya, no hace falta cargar las tablas enteras
+    @Override
+    public void upsert(CatalogIncrement increment) {
+        saveAll(increment.getCategories(), increment.getProfessionals(), increment.getWeeklySchedules());
     }
 }

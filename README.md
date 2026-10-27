@@ -102,11 +102,22 @@ Para saber qué cambió, el servicio también lee de solo lectura el Redis de la
 
 La cátedra avisa cada versión nueva con un evento `CatalogUpdated` en Kafka. El servicio lo consume así:
 
-1. Si ya procesó ese `eventId`, o la copia local ya tiene esa versión o una mayor, lo ignora sin pedir nada a la cátedra.
-2. Si no, pide el snapshot y, en **una sola transacción**, aplica los datos, avanza la versión y guarda el `eventId` en `processed_events`. Si algo falla no queda nada.
-3. Recién después confirma el offset en Kafka. Si el servicio cae antes, Kafka reentrega el evento y el `eventId` evita repetir el efecto.
+1. Si ya procesó ese `eventId`, o la copia local tiene justo la versión que anuncia el evento, lo ignora sin pedir nada.
+2. Si no, lee de Redis las versiones que publica la cátedra y decide cómo sincronizar, comparando con la versión local:
 
-Un fallo al procesar se reintenta 3 veces, esperando 1, 2 y 4 segundos (`catedra.kafka.max-retries` y `catedra.kafka.initial-backoff`). Si se agotan los reintentos, o el mensaje no se puede interpretar, se registra un error y se pasa al siguiente mensaje: no hay cola de eventos muertos. Una notificación perdida se recupera comparando versiones, algo que se agrega en un issue siguiente junto con la sincronización incremental y la verificación periódica. Hasta entonces cada evento trae el snapshot completo.
+   | Versión local | Qué hace |
+   | --- | --- |
+   | Igual a la actual de Redis | Nada (un evento viejo que llega tarde no cambia nada) |
+   | 0 (base vacía) | Snapshot completo |
+   | Mayor que la actual de Redis | Snapshot completo: la cátedra retrocedió y es la fuente de verdad. Se avisa con un log |
+   | Menor que la versión más antigua disponible | Snapshot completo: ya no están todos los cambios |
+   | Cualquier otra menor | **Incremental**: aplica de a una las versiones desde la local + 1 hasta la actual |
+
+3. En la incremental, cada versión es **una transacción**: se leen de Redis las entidades afectadas, se crean o actualizan (las bajas de la cátedra llegan como `enabled = false`, no se borra nada) y avanza la versión. El `eventId` se guarda en la transacción de la **última** versión. Si algo falla a mitad, lo ya aplicado queda.
+4. Si la incremental falla (falta el historial de una versión, un dato inválido, la base lo rechaza) o Redis no responde, cae al snapshot completo, que en **una sola transacción** aplica los datos, avanza la versión y guarda el `eventId`. El error de la incremental solo se registra si también falla el snapshot. El tipo del último intento queda en `sync_state`.
+5. Recién después confirma el offset en Kafka. Si el servicio cae antes, Kafka reentrega el evento y el `eventId` evita repetir el efecto.
+
+Un fallo al procesar se reintenta 3 veces, esperando 1, 2 y 4 segundos (`catedra.kafka.max-retries` y `catedra.kafka.initial-backoff`). Si se agotan los reintentos, o el mensaje no se puede interpretar, se registra un error y se pasa al siguiente mensaje: no hay cola de eventos muertos. Una notificación perdida la recupera la verificación de versión al arrancar y cada cierto tiempo, que se agrega en un issue siguiente: hasta entonces, la copia queda atrasada hasta el próximo evento.
 
 Kafka no forma parte de `/actuator/health`, igual que Redis.
 

@@ -18,6 +18,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.application.exception.CatedraUnavailableException;
+import ar.edu.um.prog2.fzapata.catalogo.catalogo.application.exception.SyncStateMissingException;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.SyncState;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.SyncStatus;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.SyncType;
@@ -86,6 +87,7 @@ class RecordSyncFailureUseCaseImplTest {
         IllegalStateException cause = new IllegalStateException("x");
 
         assertThatThrownBy(() -> useCase.recordFailure(SyncType.FULL, cause))
-                .isInstanceOf(IllegalStateException.class);
+                .isInstanceOf(SyncStateMissingException.class)
+                .hasMessage("La tabla sync_state está vacía, la base fue alterada");
     }
 }

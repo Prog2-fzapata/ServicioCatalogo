@@ -23,6 +23,7 @@ import org.springframework.test.context.TestConstructor;
 
 import ar.edu.um.prog2.fzapata.catalogo.TestcontainersConfiguration;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.CatalogFixtures;
+import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.CatalogIncrement;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.CatalogSnapshot;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.Professional;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.ProfessionalCategory;
@@ -64,6 +65,17 @@ class JpaCatalogRepositoryAdapterTest {
 
     private void store(CatalogSnapshot snapshot) {
         adapter.replaceAll(snapshot);
+        flushAndClear();
+    }
+
+    private CatalogIncrement increment(List<ProfessionalCategory> categories, List<Professional> professionals,
+            List<WeeklySchedule> schedules) {
+        return CatalogIncrement.builder().version(2).categories(categories).professionals(professionals)
+                .weeklySchedules(schedules).build();
+    }
+
+    private void upsert(CatalogIncrement increment) {
+        adapter.upsert(increment);
         flushAndClear();
     }
 
@@ -178,5 +190,50 @@ class JpaCatalogRepositoryAdapterTest {
         CatalogSnapshot invalid = snapshot(List.of(category(1)), List.of(professional(10, 99)), List.of());
 
         assertThatThrownBy(() -> store(invalid)).isInstanceOf(PersistenceException.class);
+    }
+
+    @Test
+    void upsertCreatesTheNewRowsUpdatesTheExistingOnesAndDeletesNothing() {
+        store(snapshot(List.of(category(1), category(2)), List.of(professional(10, 1), professional(11, 2)),
+                List.of(schedule(100, 10), schedule(101, 11))));
+
+        Professional changed = professional(10, 1);
+        changed.setLastName("Apellido nuevo");
+        upsert(increment(List.of(category(3)), List.of(changed), List.of(schedule(102, 10))));
+
+        assertThat(categoryIds()).containsExactly(1L, 2L, 3L);
+        assertThat(professionalIds()).containsExactly(10L, 11L);
+        assertThat(scheduleIds()).containsExactly(100L, 101L, 102L);
+        assertThat(professionalRepository.findById(10L).orElseThrow().getLastName()).isEqualTo("Apellido nuevo");
+        assertThat(professionalRepository.findById(11L).orElseThrow().getLastName()).isEqualTo("Apellido11");
+    }
+
+    // La cátedra no borra: da de baja con enabled = false y la incremental tiene que reflejarlo
+    @Test
+    void upsertStoresADisabledEntityAsDisabled() {
+        store(snapshot(List.of(category(1)), List.of(professional(10, 1)), List.of(schedule(100, 10))));
+
+        Professional disabled = professional(10, 1);
+        disabled.setEnabled(false);
+        upsert(increment(List.of(), List.of(disabled), List.of()));
+
+        assertThat(professionalRepository.findById(10L).orElseThrow().isEnabled()).isFalse();
+        assertThat(scheduleRepository.findById(100L).orElseThrow().isEnabled()).isTrue();
+    }
+
+    @Test
+    void upsertWritesParentsBeforeChildrenWhenTheVersionBringsBoth() {
+        upsert(increment(List.of(category(1)), List.of(professional(10, 1)), List.of(schedule(100, 10))));
+
+        assertThat(categoryIds()).containsExactly(1L);
+        assertThat(professionalIds()).containsExactly(10L);
+        assertThat(scheduleIds()).containsExactly(100L);
+    }
+
+    @Test
+    void upsertFailsWhenAProfessionalPointsToACategoryThatDoesNotExist() {
+        CatalogIncrement invalid = increment(List.of(), List.of(professional(10, 99)), List.of());
+
+        assertThatThrownBy(() -> upsert(invalid)).isInstanceOf(PersistenceException.class);
     }
 }

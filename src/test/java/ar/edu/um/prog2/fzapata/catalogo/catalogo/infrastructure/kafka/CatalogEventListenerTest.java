@@ -21,6 +21,7 @@ import ar.edu.um.prog2.fzapata.catalogo.catalogo.application.exception.CatedraUn
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.application.service.CatalogService;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.CatalogUpdatedEvent;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.SyncResult;
+import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.SyncType;
 import tools.jackson.databind.json.JsonMapper;
 
 @ExtendWith(MockitoExtension.class)
@@ -43,7 +44,7 @@ class CatalogEventListenerTest {
 
     @Test
     void confirmsTheOffsetOnlyAfterTheEventWasHandled() {
-        when(catalogService.synchronizeForEvent(EVENT)).thenReturn(Optional.of(new SyncResult(3, 7)));
+        when(catalogService.synchronizeForEvent(EVENT)).thenReturn(Optional.of(new SyncResult(3, 7, SyncType.FULL)));
 
         listener.onCatalogUpdated(PAYLOAD, acknowledgment);
 
@@ -63,7 +64,7 @@ class CatalogEventListenerTest {
 
     @Test
     void confirmsTheOffsetWhenTheCatedraWentBackwards() {
-        when(catalogService.synchronizeForEvent(EVENT)).thenReturn(Optional.of(new SyncResult(9, 7)));
+        when(catalogService.synchronizeForEvent(EVENT)).thenReturn(Optional.of(new SyncResult(9, 7, SyncType.FULL)));
 
         listener.onCatalogUpdated(PAYLOAD, acknowledgment);
 
