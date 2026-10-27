@@ -12,6 +12,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -36,7 +37,9 @@ import ar.edu.um.prog2.fzapata.catalogo.KafkaTestcontainersConfiguration;
 import ar.edu.um.prog2.fzapata.catalogo.TestcontainersConfiguration;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.application.exception.CatedraUnavailableException;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.CatalogSnapshot;
+import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.SyncMetadata;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.ports.out.CatedraApiClient;
+import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.ports.out.CatedraSyncSource;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.ports.out.ProcessedEventRepository;
 import lombok.RequiredArgsConstructor;
 
@@ -61,11 +64,16 @@ class CatalogEventListenerIntegrationTest {
     @MockitoBean
     private CatedraApiClient catedraApiClient;
 
+    // Redis no es lo que se prueba acá: con una versión actual altísima y base vacía siempre va por el snapshot
+    @MockitoBean
+    private CatedraSyncSource catedraSyncSource;
+
     @MockitoSpyBean
     private ProcessedEventRepository processedEventRepository;
 
     @BeforeEach
     void cleanDatabase() {
+        when(catedraSyncSource.readMetadata()).thenReturn(new SyncMetadata(1000, 1, Instant.now()));
         jdbc.sql("DELETE FROM processed_events").update();
         jdbc.sql("DELETE FROM weekly_schedules").update();
         jdbc.sql("DELETE FROM professionals").update();

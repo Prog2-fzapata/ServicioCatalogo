@@ -22,6 +22,7 @@ import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import ar.edu.um.prog2.fzapata.catalogo.catalogo.application.exception.SyncStateMissingException;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.CatalogSnapshot;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.SyncResult;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.SyncState;
@@ -77,7 +78,7 @@ class ApplyCatalogSnapshotUseCaseImplTest {
         assertThat(saved.getLastSyncType()).isEqualTo(SyncType.FULL);
         assertThat(saved.getLastStatus()).isEqualTo(SyncStatus.OK);
         assertThat(saved.getLastError()).isNull();
-        assertThat(result).isEqualTo(new SyncResult(3, 7));
+        assertThat(result).isEqualTo(new SyncResult(3, 7, SyncType.FULL));
     }
 
     @Test
@@ -99,7 +100,7 @@ class ApplyCatalogSnapshotUseCaseImplTest {
         SyncResult result = useCase.applySnapshot(snapshotOfVersion(4));
 
         assertThat(savedState().getLocalVersion()).isEqualTo(4);
-        assertThat(result).isEqualTo(new SyncResult(9, 4));
+        assertThat(result).isEqualTo(new SyncResult(9, 4, SyncType.FULL));
     }
 
     @Test
@@ -130,7 +131,8 @@ class ApplyCatalogSnapshotUseCaseImplTest {
         when(syncStateRepository.findForUpdate()).thenReturn(Optional.empty());
         CatalogSnapshot snapshot = snapshotOfVersion(1);
 
-        assertThatThrownBy(() -> useCase.applySnapshot(snapshot)).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> useCase.applySnapshot(snapshot)).isInstanceOf(SyncStateMissingException.class)
+                .hasMessage("La tabla sync_state está vacía, la base fue alterada");
 
         verify(catalogRepository, never()).replaceAll(any());
     }

@@ -31,6 +31,7 @@ import ar.edu.um.prog2.fzapata.catalogo.TestcontainersConfiguration;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.application.exception.CatedraUnavailableException;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.CatalogSnapshot;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.SyncResult;
+import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.SyncType;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.ports.in.ApplyCatalogSnapshotUseCase;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.ports.in.SynchronizeCatalogUseCase;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.ports.out.CatedraApiClient;
@@ -92,7 +93,7 @@ class SynchronizeCatalogIntegrationTest {
 
         SyncResult result = synchronizeCatalogUseCase.synchronizeFull();
 
-        assertThat(result).isEqualTo(new SyncResult(0, 7));
+        assertThat(result).isEqualTo(new SyncResult(0, 7, SyncType.FULL));
         assertThat(count("professional_categories")).isEqualTo(1);
         assertThat(count("professionals")).isEqualTo(1);
         assertThat(count("weekly_schedules")).isEqualTo(1);
@@ -158,7 +159,7 @@ class SynchronizeCatalogIntegrationTest {
 
         SyncResult result = synchronizeCatalogUseCase.synchronizeFull();
 
-        assertThat(result).isEqualTo(new SyncResult(9, 4));
+        assertThat(result).isEqualTo(new SyncResult(9, 4, SyncType.FULL));
         assertThat(syncState()).containsEntry("local_version", 4L);
     }
 
@@ -197,7 +198,7 @@ class SynchronizeCatalogIntegrationTest {
 
             release.countDown();
             holder.get(5, TimeUnit.SECONDS);
-            assertThat(waiting.get(5, TimeUnit.SECONDS)).isEqualTo(new SyncResult(0, 7));
+            assertThat(waiting.get(5, TimeUnit.SECONDS)).isEqualTo(new SyncResult(0, 7, SyncType.FULL));
         } finally {
             release.countDown();
             pool.shutdownNow();
