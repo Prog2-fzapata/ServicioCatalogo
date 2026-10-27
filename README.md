@@ -141,6 +141,36 @@ Si la cátedra o Redis no responden, la vuelta falla, se registra el error y se 
 
 Kafka no forma parte de `/actuator/health`, igual que Redis.
 
+### Estado de la sincronización
+
+`GET /api/sync/status` informa cómo está la copia local. **Requiere un JWT válido** (cualquier usuario autenticado, sin rol particular); sin token responde `401`.
+
+```bash
+curl localhost:8081/api/sync/status -H "Authorization: Bearer <id_token>"
+```
+
+```json
+{
+  "localVersion": 7,
+  "lastSyncAt": "2026-10-27T19:49:12Z",
+  "lastSyncType": "INCREMENTAL",
+  "lastStatus": "OK",
+  "lastError": null
+}
+```
+
+| Campo | Significado |
+| --- | --- |
+| `localVersion` | Versión del catálogo que tiene la copia. `0` si todavía no se sincronizó nunca |
+| `lastSyncAt` | Momento del último intento (o de la última recuperación de un error) |
+| `lastSyncType` | `FULL` (snapshot) o `INCREMENTAL` |
+| `lastStatus` | `OK` o `ERROR` |
+| `lastError` | Causa del último error, o `null` si el último intento salió bien |
+
+Una base que nunca se sincronizó devuelve `localVersion` en `0` y el resto en `null`: es un estado normal, no un error. Si una sincronización falla, `lastStatus` queda en `ERROR` hasta que una verificación posterior encuentra la copia al día.
+
+**Los errores se guardan sin datos sensibles.** De una falla al hablar con la cátedra se guarda la clase y el mensaje (por ejemplo `CatedraUnavailableException: No se pudo conectar con la cátedra`), que escribimos nosotros. De cualquier otra excepción se guarda solo el nombre de la clase: su mensaje (el de la base de datos, por ejemplo) puede traer la sentencia SQL, nombres de columnas o valores. El detalle completo queda en el log del servicio.
+
 ## Tests
 
 ```bash
