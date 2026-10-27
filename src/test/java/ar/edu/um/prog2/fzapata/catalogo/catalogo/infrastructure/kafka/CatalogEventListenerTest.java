@@ -22,6 +22,7 @@ import ar.edu.um.prog2.fzapata.catalogo.catalogo.application.service.CatalogServ
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.CatalogUpdatedEvent;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.SyncResult;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.SyncType;
+import ar.edu.um.prog2.fzapata.catalogo.catalogo.infrastructure.logging.SyncOutcomeLogger;
 import tools.jackson.databind.json.JsonMapper;
 
 @ExtendWith(MockitoExtension.class)
@@ -39,7 +40,8 @@ class CatalogEventListenerTest {
 
     @BeforeEach
     void setUp() {
-        listener = new CatalogEventListener(catalogService, new CatalogEventMapper(JsonMapper.builder().build()));
+        listener = new CatalogEventListener(catalogService, new CatalogEventMapper(JsonMapper.builder().build()),
+                new SyncOutcomeLogger());
     }
 
     @Test

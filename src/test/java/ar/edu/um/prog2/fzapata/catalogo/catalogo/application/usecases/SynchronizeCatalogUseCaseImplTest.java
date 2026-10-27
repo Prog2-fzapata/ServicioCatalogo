@@ -43,6 +43,7 @@ import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.SyncType;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.ports.in.ApplyCatalogEventUseCase;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.ports.in.ApplyCatalogIncrementUseCase;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.ports.in.ApplyCatalogSnapshotUseCase;
+import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.ports.in.ClearSyncErrorUseCase;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.ports.in.RecordSyncFailureUseCase;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.ports.out.CatedraApiClient;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.ports.out.CatedraSyncSource;
@@ -73,6 +74,9 @@ class SynchronizeCatalogUseCaseImplTest {
     private RecordSyncFailureUseCase recordSyncFailureUseCase;
 
     @Mock
+    private ClearSyncErrorUseCase clearSyncErrorUseCase;
+
+    @Mock
     private ProcessedEventRepository processedEventRepository;
 
     @Mock
@@ -84,7 +88,7 @@ class SynchronizeCatalogUseCaseImplTest {
     void setUp() {
         useCase = new SynchronizeCatalogUseCaseImpl(catedraApiClient, catedraSyncSource, applyCatalogSnapshotUseCase,
                 applyCatalogIncrementUseCase, applyCatalogEventUseCase, recordSyncFailureUseCase,
-                processedEventRepository, syncStateRepository);
+                clearSyncErrorUseCase, processedEventRepository, syncStateRepository);
     }
 
     private CatalogSnapshot snapshotOfVersion(long version) {
@@ -124,6 +128,13 @@ class SynchronizeCatalogUseCaseImplTest {
         CatalogSnapshot snapshot = snapshotOfVersion(version);
         when(catedraApiClient.fetchSnapshot()).thenReturn(snapshot);
         when(applyCatalogEventUseCase.applyEvent(event, snapshot)).thenReturn(Optional.of(result));
+    }
+
+    private CatalogSnapshot givenSnapshotAppliesWithoutEvent(long version, SyncResult result) {
+        CatalogSnapshot snapshot = snapshotOfVersion(version);
+        when(catedraApiClient.fetchSnapshot()).thenReturn(snapshot);
+        when(applyCatalogSnapshotUseCase.applySnapshot(snapshot)).thenReturn(result);
+        return snapshot;
     }
 
     @Test
@@ -183,6 +194,7 @@ class SynchronizeCatalogUseCaseImplTest {
 
         verify(catedraSyncSource, never()).readMetadata();
         verify(catedraApiClient, never()).fetchSnapshot();
+        verify(clearSyncErrorUseCase, never()).clearError();
     }
 
     @Test
@@ -192,6 +204,7 @@ class SynchronizeCatalogUseCaseImplTest {
         assertThat(useCase.synchronizeForEvent(eventOfVersion(7))).isEmpty();
 
         verify(catedraSyncSource, never()).readMetadata();
+        verify(clearSyncErrorUseCase, never()).clearError();
     }
 
     // Un evento viejo que llega tarde se resuelve contra lo que publica Redis hoy, no contra su propia versión
@@ -204,13 +217,14 @@ class SynchronizeCatalogUseCaseImplTest {
 
         verify(catedraApiClient, never()).fetchSnapshot();
         verify(applyCatalogIncrementUseCase, never()).applyIncrement(any());
+        verify(clearSyncErrorUseCase).clearError();
     }
 
     @Test
     void appliesTheSnapshotWhenTheDatabaseIsEmpty() {
         CatalogUpdatedEvent event = eventOfVersion(7);
         givenLocalVersion(0);
-        givenRedisVersions(7, 1);
+        givenRedisVersions(7, 0);
         givenSnapshotApplies(event, 7, new SyncResult(0, 7, SyncType.FULL));
 
         assertThat(useCase.synchronizeForEvent(event))
@@ -417,6 +431,115 @@ class SynchronizeCatalogUseCaseImplTest {
                 .hasMessage("La tabla sync_state está vacía, la base fue alterada");
 
         verify(recordSyncFailureUseCase, never()).recordFailure(any(), any());
+    }
+
+    @Test
+    void theVersionCheckAppliesTheSnapshotWhenTheDatabaseIsEmptyAndRecordsNoEvent() {
+        givenLocalVersion(0);
+        givenRedisVersions(7, 0);
+        givenSnapshotAppliesWithoutEvent(7, new SyncResult(0, 7, SyncType.FULL));
+
+        assertThat(useCase.synchronize()).contains(new SyncResult(0, 7, SyncType.FULL, "la base está vacía"));
+
+        verify(applyCatalogEventUseCase, never()).applyEvent(any(CatalogUpdatedEvent.class),
+                any(CatalogSnapshot.class));
+        verify(processedEventRepository, never()).existsById(any());
+        verify(clearSyncErrorUseCase, never()).clearError();
+    }
+
+    @Test
+    void theVersionCheckDoesNothingWhenTheCopyIsAlreadyCurrent() {
+        givenLocalVersion(7);
+        givenRedisVersions(7, 1);
+
+        assertThat(useCase.synchronize()).isEmpty();
+
+        verify(catedraApiClient, never()).fetchSnapshot();
+        verify(applyCatalogIncrementUseCase, never()).applyIncrement(any());
+        verify(clearSyncErrorUseCase).clearError();
+    }
+
+    // Una notificación perdida: Kafka nunca avisó de las versiones 5 a 7, pero Redis sí las tiene
+    @Test
+    void theVersionCheckRecoversALostNotificationWithIncrementsAndNoEvent() {
+        givenLocalVersion(4);
+        givenRedisVersions(7, 2);
+        givenChangesOf(5);
+        givenChangesOf(6);
+        givenChangesOf(7);
+        when(applyCatalogIncrementUseCase.applyIncrement(any())).thenReturn(new SyncResult(0, 0, SyncType.INCREMENTAL));
+
+        assertThat(useCase.synchronize()).contains(new SyncResult(4, 7, SyncType.INCREMENTAL));
+
+        InOrder order = inOrder(applyCatalogIncrementUseCase);
+        order.verify(applyCatalogIncrementUseCase).applyIncrement(incrementOfVersion(5));
+        order.verify(applyCatalogIncrementUseCase).applyIncrement(incrementOfVersion(6));
+        order.verify(applyCatalogIncrementUseCase).applyIncrement(incrementOfVersion(7));
+        verify(applyCatalogEventUseCase, never()).applyEvent(any(CatalogUpdatedEvent.class),
+                any(CatalogIncrement.class));
+        verify(catedraApiClient, never()).fetchSnapshot();
+        verify(clearSyncErrorUseCase, never()).clearError();
+    }
+
+    @Test
+    void theVersionCheckAppliesTheSnapshotWhenTheCatedraWentBackwards() {
+        givenLocalVersion(9);
+        givenRedisVersions(5, 2);
+        givenSnapshotAppliesWithoutEvent(5, new SyncResult(9, 5, SyncType.FULL));
+
+        assertThat(useCase.synchronize()).hasValueSatisfying(applied -> {
+            assertThat(applied.newVersion()).isEqualTo(5);
+            assertThat(applied.snapshotReason()).contains("retrocedió");
+        });
+    }
+
+    @Test
+    void theVersionCheckAppliesTheSnapshotWhenTheLocalVersionIsOlderThanTheOldestAvailable() {
+        givenLocalVersion(3);
+        givenRedisVersions(7, 4);
+        givenSnapshotAppliesWithoutEvent(7, new SyncResult(3, 7, SyncType.FULL));
+
+        assertThat(useCase.synchronize()).hasValueSatisfying(applied ->
+                assertThat(applied.snapshotReason()).contains("anterior a la más antigua"));
+    }
+
+    @Test
+    void theVersionCheckFallsBackToTheSnapshotWhenAnIncrementFails() {
+        givenLocalVersion(4);
+        givenRedisVersions(6, 2);
+        givenChangesOf(5);
+        when(catedraSyncSource.readChanges(6)).thenReturn(Optional.empty());
+        givenSnapshotAppliesWithoutEvent(6, new SyncResult(5, 6, SyncType.FULL));
+
+        assertThat(useCase.synchronize()).hasValueSatisfying(applied ->
+                assertThat(applied.snapshotReason()).contains("falló la incremental", "versión 6"));
+
+        verify(recordSyncFailureUseCase, never()).recordFailure(any(), any());
+    }
+
+    @Test
+    void theVersionCheckFallsBackToTheSnapshotWhenRedisDoesNotAnswer() {
+        givenLocalVersion(4);
+        when(catedraSyncSource.readMetadata()).thenThrow(unavailable());
+        givenSnapshotAppliesWithoutEvent(7, new SyncResult(4, 7, SyncType.FULL));
+
+        assertThat(useCase.synchronize()).hasValueSatisfying(applied ->
+                assertThat(applied.snapshotReason()).contains("no se pudo leer Redis"));
+    }
+
+    @Test
+    void theVersionCheckRecordsTheFailureAndRethrowsWhenEverythingFails() {
+        CatedraUnavailableException redisFailure = unavailable();
+        CatedraUnavailableException snapshotFailure = unavailable();
+        givenLocalVersion(4);
+        when(catedraSyncSource.readMetadata()).thenThrow(redisFailure);
+        when(catedraApiClient.fetchSnapshot()).thenThrow(snapshotFailure);
+
+        assertThatThrownBy(() -> useCase.synchronize())
+                .isSameAs(snapshotFailure)
+                .hasSuppressedException(redisFailure);
+
+        verify(recordSyncFailureUseCase).recordFailure(SyncType.FULL, snapshotFailure);
     }
 
     @Test
