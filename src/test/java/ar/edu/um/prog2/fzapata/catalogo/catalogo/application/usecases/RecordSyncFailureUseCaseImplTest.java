@@ -17,6 +17,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import ar.edu.um.prog2.fzapata.catalogo.catalogo.application.exception.CatedraResponseException;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.application.exception.CatedraUnavailableException;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.application.exception.SyncStateMissingException;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.SyncState;
@@ -73,12 +74,34 @@ class RecordSyncFailureUseCaseImplTest {
     }
 
     @Test
-    void cutsAVeryLongErrorMessage() {
+    void cutsAVeryLongErrorMessageOfACatedraException() {
         givenState(SyncState.builder().build());
 
-        useCase.recordFailure(SyncType.FULL, new IllegalStateException("x".repeat(2000)));
+        useCase.recordFailure(SyncType.FULL, new CatedraResponseException("x".repeat(2000), null));
 
-        assertThat(savedState().getLastError()).hasSize(500).startsWith("IllegalStateException: xxx");
+        assertThat(savedState().getLastError()).hasSize(500).startsWith("CatedraResponseException: xxx");
+    }
+
+    // El criterio de CAT-15: lo que se registra no trae datos sensibles. El mensaje de Hibernate o del driver puede
+    // incluir la sentencia SQL, nombres de columnas y valores
+    @Test
+    void recordsOnlyTheClassNameOfAnExceptionThatIsNotFromTheCatedra() {
+        givenState(SyncState.builder().build());
+
+        useCase.recordFailure(SyncType.FULL, new IllegalStateException(
+                "could not execute statement [ERROR: insert or update on table \"professionals\" violates foreign key "
+                        + "constraint] [insert into professionals (category_id, first_name) values (?, ?)]"));
+
+        assertThat(savedState().getLastError()).isEqualTo("IllegalStateException");
+    }
+
+    @Test
+    void recordsOnlyTheClassNameWhenACatedraExceptionHasNoMessage() {
+        givenState(SyncState.builder().build());
+
+        useCase.recordFailure(SyncType.FULL, new CatedraUnavailableException(null, null));
+
+        assertThat(savedState().getLastError()).isEqualTo("CatedraUnavailableException");
     }
 
     @Test
