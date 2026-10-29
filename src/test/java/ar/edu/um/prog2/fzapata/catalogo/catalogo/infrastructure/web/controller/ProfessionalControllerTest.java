@@ -29,6 +29,7 @@ import org.springframework.test.context.TestConstructor;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import ar.edu.um.prog2.fzapata.catalogo.catalogo.application.exception.ProfessionalNotFoundException;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.application.service.CatalogService;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.PageQuery;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.PagedResult;
@@ -217,6 +218,84 @@ class ProfessionalControllerTest {
     @Test
     void onlyAllowsGet() throws Exception {
         mockMvc.perform(post("/api/professionals").with(jwt()))
+                .andExpect(status().isMethodNotAllowed());
+    }
+
+    @Test
+    void theDetailRequiresAuthentication() throws Exception {
+        mockMvc.perform(get("/api/professionals/15"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+
+        verifyNoInteractions(catalogService);
+    }
+
+    @Test
+    void theDetailShowsEveryScheduleWithItsIdAndItsEnabledFlag() throws Exception {
+        WeeklySchedule disabled = schedule(101, 15);
+        disabled.setDayOfWeek(DayOfWeek.TUESDAY);
+        disabled.setStartTime(LocalTime.of(14, 0));
+        disabled.setEndTime(LocalTime.of(18, 0));
+        disabled.setSlotDurationMinutes(20);
+        disabled.setEnabled(false);
+        when(catalogService.getProfessional(15L)).thenReturn(
+                new ProfessionalSummary(professional(15, 1), "Categoria 1", List.of(monday(), disabled)));
+
+        mockMvc.perform(get("/api/professionals/15").with(jwt()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(15))
+                .andExpect(jsonPath("$.categoryId").value(1))
+                .andExpect(jsonPath("$.categoryName").value("Categoria 1"))
+                .andExpect(jsonPath("$.firstName").value("Nombre15"))
+                .andExpect(jsonPath("$.lastName").value("Apellido15"))
+                .andExpect(jsonPath("$.enabled").value(true))
+                .andExpect(jsonPath("$.weeklySchedules", hasSize(2)))
+                .andExpect(jsonPath("$.weeklySchedules[0].id").value(100))
+                .andExpect(jsonPath("$.weeklySchedules[0].dayOfWeek").value("MONDAY"))
+                .andExpect(jsonPath("$.weeklySchedules[0].startTime").value("09:00:00"))
+                .andExpect(jsonPath("$.weeklySchedules[0].endTime").value("12:00:00"))
+                .andExpect(jsonPath("$.weeklySchedules[0].slotDurationMinutes").value(30))
+                .andExpect(jsonPath("$.weeklySchedules[0].enabled").value(true))
+                .andExpect(jsonPath("$.weeklySchedules[1].id").value(101))
+                .andExpect(jsonPath("$.weeklySchedules[1].enabled").value(false));
+    }
+
+    @Test
+    void aDisabledProfessionalIsReturnedWithEnabledFalse() throws Exception {
+        var disabled = professional(15, 1);
+        disabled.setEnabled(false);
+        when(catalogService.getProfessional(15L))
+                .thenReturn(new ProfessionalSummary(disabled, "Categoria 1", List.of()));
+
+        mockMvc.perform(get("/api/professionals/15").with(jwt()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.enabled").value(false))
+                .andExpect(jsonPath("$.weeklySchedules", hasSize(0)));
+    }
+
+    @Test
+    void anUnknownProfessionalIsANotFoundWithItsOwnCode() throws Exception {
+        when(catalogService.getProfessional(99L)).thenThrow(new ProfessionalNotFoundException(99L));
+
+        mockMvc.perform(get("/api/professionals/99").with(jwt()))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("PROFESSIONAL_NOT_FOUND"))
+                .andExpect(jsonPath("$.detail").value("No existe el profesional con id 99"))
+                .andExpect(jsonPath("$.path").value("/api/professionals/99"));
+    }
+
+    @Test
+    void anIdThatIsNotANumberIsABadRequest() throws Exception {
+        mockMvc.perform(get("/api/professionals/abc").with(jwt()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("BAD_REQUEST"));
+
+        verifyNoInteractions(catalogService);
+    }
+
+    @Test
+    void theDetailOnlyAllowsGet() throws Exception {
+        mockMvc.perform(post("/api/professionals/15").with(jwt()))
                 .andExpect(status().isMethodNotAllowed());
     }
 }

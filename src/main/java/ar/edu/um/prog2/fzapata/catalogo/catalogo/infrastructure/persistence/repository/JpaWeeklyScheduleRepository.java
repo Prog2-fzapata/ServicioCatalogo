@@ -12,4 +12,6 @@ import ar.edu.um.prog2.fzapata.catalogo.catalogo.infrastructure.persistence.enti
 public interface JpaWeeklyScheduleRepository extends JpaRepository<WeeklyScheduleEntity, Long> {
 
     List<WeeklyScheduleEntity> findByProfessionalIdInAndEnabledTrue(Collection<Long> professionalIds);
+
+    List<WeeklyScheduleEntity> findByProfessionalId(Long professionalId);
 }

@@ -20,6 +20,7 @@ import ar.edu.um.prog2.fzapata.catalogo.catalogo.infrastructure.web.exception.In
 public class ProfessionalQueryMapper {
 
     public static final int MAX_NAME_LENGTH = 100;
+    public static final String SEARCH_OBJECT = "professionalSearch";
 
     // Los únicos nombres de campo que acepta sort, como aparecen en la respuesta
     private static final Map<String, Field> SORTABLE = Map.of(
@@ -29,7 +30,7 @@ public class ProfessionalQueryMapper {
 
     public ProfessionalFilter toFilter(Long categoryId, String name, Boolean enabled, Boolean available) {
         if (name != null && name.length() > MAX_NAME_LENGTH) {
-            throw new InvalidSearchParameterException("name",
+            throw new InvalidSearchParameterException(SEARCH_OBJECT, "name",
                     "El nombre no puede tener más de " + MAX_NAME_LENGTH + " caracteres");
         }
         return new ProfessionalFilter(categoryId, name, enabled, available);
@@ -48,7 +49,7 @@ public class ProfessionalQueryMapper {
         for (Sort.Order item : pageable.getSort()) {
             Field field = SORTABLE.get(item.getProperty());
             if (field == null) {
-                throw new InvalidSearchParameterException("sort", "No se puede ordenar por '" + item.getProperty()
+                throw new InvalidSearchParameterException(SEARCH_OBJECT, "sort", "No se puede ordenar por '" + item.getProperty()
                         + "'; los campos permitidos son: id, firstName, lastName");
             }
             order.add(new ProfessionalSortOrder(field, item.isAscending() ? Direction.ASC : Direction.DESC));

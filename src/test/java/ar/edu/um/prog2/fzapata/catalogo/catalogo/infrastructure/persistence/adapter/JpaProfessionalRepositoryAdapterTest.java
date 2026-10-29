@@ -266,4 +266,24 @@ class JpaProfessionalRepositoryAdapterTest {
         // La página, el total, las categorías y los horarios
         assertThat(statistics().getPrepareStatementCount()).isLessThanOrEqualTo(4);
     }
+
+    @Test
+    void findsAProfessionalByIdEvenIfItIsDisabled() {
+        assertThat(adapter.findById(10L)).get().extracting(Professional::getFirstName).isEqualTo("Ana");
+        assertThat(adapter.findById(12L)).get().extracting(Professional::isEnabled).isEqualTo(false);
+    }
+
+    @Test
+    void anUnknownProfessionalIdIsEmpty() {
+        assertThat(adapter.findById(99L)).isEmpty();
+    }
+
+    @Test
+    void theScheduleAdapterReturnsEveryScheduleOfOneProfessionalEvenTheDisabledOnes() {
+        assertThat(scheduleAdapter.findByProfessionalId(13L)).extracting(WeeklySchedule::getId)
+                .containsExactlyInAnyOrder(102L, 103L);
+        assertThat(scheduleAdapter.findByProfessionalId(12L)).extracting(WeeklySchedule::getId)
+                .containsExactly(101L);
+        assertThat(scheduleAdapter.findByProfessionalId(11L)).isEmpty();
+    }
 }

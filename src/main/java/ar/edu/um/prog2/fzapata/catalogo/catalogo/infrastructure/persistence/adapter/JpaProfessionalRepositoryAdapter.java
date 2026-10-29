@@ -2,6 +2,7 @@ package ar.edu.um.prog2.fzapata.catalogo.catalogo.infrastructure.persistence.ada
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -75,5 +76,10 @@ public class JpaProfessionalRepositoryAdapter implements ProfessionalRepository 
                 PageRequest.of(page.page(), page.size(), toSort(sort)));
         return new PagedResult<>(found.getContent().stream().map(catalogMapper::toDomainModel).toList(),
                 found.getTotalElements(), page);
+    }
+
+    @Override
+    public Optional<Professional> findById(Long id) {
+        return jpaProfessionalRepository.findById(id).map(catalogMapper::toDomainModel);
     }
 }
