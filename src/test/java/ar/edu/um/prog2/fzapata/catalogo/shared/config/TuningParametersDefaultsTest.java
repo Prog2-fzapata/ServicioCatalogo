@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.core.env.Environment;
 import org.springframework.test.context.TestConstructor;
 
 import ar.edu.um.prog2.fzapata.catalogo.TestcontainersConfiguration;
@@ -26,9 +27,11 @@ class TuningParametersDefaultsTest {
 
         private final CatedraSyncProperties syncProperties;
         private final CatedraKafkaProperties kafkaProperties;
+        private final Environment environment;
 
         @Test
         void usesTheDefaultsOfTheApplicationProperties() {
+            assertThat(environment.getProperty("spring.data.web.pageable.max-page-size")).isEqualTo("100");
             assertThat(syncProperties.checkInterval()).isEqualTo(Duration.ofMinutes(5));
             assertThat(syncProperties.initialDelay()).isEqualTo(Duration.ofSeconds(10));
             assertThat(kafkaProperties.maxRetries()).isEqualTo(3);
@@ -39,7 +42,7 @@ class TuningParametersDefaultsTest {
     // Las variables de entorno llegan a Spring como propiedades con su mismo nombre: así se simula el entorno
     @SpringBootTest(properties = {
             "CATEDRA_SYNC_CHECK_INTERVAL=2m", "CATEDRA_SYNC_INITIAL_DELAY=3s",
-            "CATEDRA_KAFKA_MAX_RETRIES=7", "CATEDRA_KAFKA_INITIAL_BACKOFF=250ms"})
+            "CATEDRA_KAFKA_MAX_RETRIES=7", "CATEDRA_KAFKA_INITIAL_BACKOFF=250ms", "CATALOGO_PAGE_MAX_SIZE=50"})
     @Import(TestcontainersConfiguration.class)
     @TestConstructor(autowireMode = TestConstructor.AutowireMode.ALL)
     @RequiredArgsConstructor
@@ -48,9 +51,11 @@ class TuningParametersDefaultsTest {
 
         private final CatedraSyncProperties syncProperties;
         private final CatedraKafkaProperties kafkaProperties;
+        private final Environment environment;
 
         @Test
         void theEnvironmentWinsOverTheDefaults() {
+            assertThat(environment.getProperty("spring.data.web.pageable.max-page-size")).isEqualTo("50");
             assertThat(syncProperties.checkInterval()).isEqualTo(Duration.ofMinutes(2));
             assertThat(syncProperties.initialDelay()).isEqualTo(Duration.ofSeconds(3));
             assertThat(kafkaProperties.maxRetries()).isEqualTo(7);

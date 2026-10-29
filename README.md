@@ -53,6 +53,7 @@ No son secretos ni dependen de la máquina, así que **tienen un valor por defec
 | `CATEDRA_SYNC_CHECK_INTERVAL` | Espera entre el fin de una verificación de versión y el comienzo de la siguiente. Mayor que cero | `5m` |
 | `CATEDRA_KAFKA_MAX_RETRIES` | Reintentos (después del primer intento) ante un fallo al procesar un evento de Kafka. `0` los desactiva | `3` |
 | `CATEDRA_KAFKA_INITIAL_BACKOFF` | Espera antes del primer reintento; cada uno espera el doble del anterior | `1s` |
+| `CATALOGO_PAGE_MAX_SIZE` | Tamaño máximo de página en las búsquedas: un `size` mayor se reduce a este valor | `100` |
 
 PostgreSQL y el servicio se publican solo en `127.0.0.1`.
 
@@ -169,6 +170,44 @@ curl localhost:8081/api/sync/status -H "Authorization: Bearer <id_token>"
 Una base que nunca se sincronizó devuelve `localVersion` en `0` y el resto en `null`: es un estado normal, no un error. Si una sincronización falla, `lastStatus` queda en `ERROR` hasta que una verificación posterior encuentra la copia al día.
 
 **Los errores se guardan sin datos sensibles.** De una falla al hablar con la cátedra se guarda la clase y el mensaje (por ejemplo `CatedraUnavailableException: No se pudo conectar con la cátedra`), que escribimos nosotros. De cualquier otra excepción se guarda solo el nombre de la clase: su mensaje (el de la base de datos, por ejemplo) puede traer la sentencia SQL, nombres de columnas o valores. El detalle completo queda en el log del servicio.
+
+### Búsqueda de profesionales
+
+`GET /api/professionals` busca sobre la copia local del catálogo; nunca consulta a la cátedra. **Requiere un JWT válido** (cualquier usuario autenticado).
+
+| Parámetro | Descripción |
+| --- | --- |
+| `categoryId` | Solo los de esa categoría |
+| `name` | Texto parcial sobre «nombre apellido» juntos, **sin distinguir mayúsculas ni tildes**: `ana gom` o `GOMEZ` encuentran a «Ana Gómez». Hasta 100 caracteres. Un `%` o un `_` se busca como texto, no como comodín |
+| `enabled` | `true` o `false`; sin valor devuelve habilitados y deshabilitados |
+| `available` | `true`: tiene al menos un horario semanal habilitado; `false`: no tiene ninguno. Se mira la agenda local, no las ocupaciones reales de la cátedra |
+| `page`, `size` | Página (desde 0) y tamaño. Por defecto `size=20`; un valor mayor que `CATALOGO_PAGE_MAX_SIZE` se reduce a ese tope |
+| `sort` | `id`, `firstName` o `lastName`, con `,asc` o `,desc` (se puede repetir). Por defecto, apellido y nombre. Cualquier otro campo responde `400` |
+
+```bash
+curl "localhost:8081/api/professionals?name=gomez&available=true&size=10&sort=lastName,asc" \
+  -H "Authorization: Bearer <id_token>"
+```
+
+La respuesta es un arreglo y el total y los enlaces van en las cabeceras, como en JHipster: `X-Total-Count` con el total de profesionales que cumplen el criterio, y `Link` con las páginas `first`, `prev`, `next` y `last`, que conservan los mismos filtros y el mismo orden.
+
+```json
+[
+  {
+    "id": 15,
+    "categoryId": 1,
+    "categoryName": "Cardiologia",
+    "firstName": "Ana",
+    "lastName": "Gómez",
+    "enabled": true,
+    "weeklySchedules": [
+      { "dayOfWeek": "MONDAY", "startTime": "09:00:00", "endTime": "12:00:00", "slotDurationMinutes": 30 }
+    ]
+  }
+]
+```
+
+`weeklySchedules` trae solo los horarios habilitados, ordenados por día de la semana y hora de inicio. Una página cuesta una cantidad fija de consultas (la página, el total, las categorías y los horarios), sin importar cuántos profesionales traiga.
 
 ## Tests
 
