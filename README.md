@@ -45,14 +45,15 @@ Completar la clave de la base, generar el secreto del JWT (`openssl rand -base64
 
 ### Parámetros de ajuste
 
-No son secretos ni dependen de la máquina, así que están **escritos en el `environment:` de `docker-compose.yml`** y no en `.env`; tampoco tienen valor por defecto en el código. Para cambiarlos se edita el compose y se reinicia. Los formatos de tiempo son `500ms`, `10s`, `5m`.
+No son secretos ni dependen de la máquina, así que **tienen un valor por defecto** (en `application.properties`) y no hace falta definirlos. Si se define la variable de entorno, esa **gana**: con Docker, desde el shell o desde el `.env` (el compose la pasa solo si está definida); fuera de Docker, exportándola. Los formatos de tiempo son `500ms`, `10s`, `5m`.
 
-| Variable | Descripción | Valor del compose |
+| Variable | Descripción | Por defecto |
 | --- | --- | --- |
 | `CATEDRA_SYNC_INITIAL_DELAY` | Espera desde que arranca el servicio hasta la primera verificación de versión. Si la base está vacía, esa vuelta trae el snapshot. Mínimo `0s` | `10s` |
 | `CATEDRA_SYNC_CHECK_INTERVAL` | Espera entre el fin de una verificación de versión y el comienzo de la siguiente. Mayor que cero | `5m` |
 | `CATEDRA_KAFKA_MAX_RETRIES` | Reintentos (después del primer intento) ante un fallo al procesar un evento de Kafka. `0` los desactiva | `3` |
 | `CATEDRA_KAFKA_INITIAL_BACKOFF` | Espera antes del primer reintento; cada uno espera el doble del anterior | `1s` |
+| `CATALOGO_PAGE_MAX_SIZE` | Tamaño máximo de página en las búsquedas: un `size` mayor se reduce a este valor | `100` |
 
 PostgreSQL y el servicio se publican solo en `127.0.0.1`.
 
@@ -78,11 +79,10 @@ Levantar solo la base y correr el servicio con Maven, con las variables de `.env
 ```bash
 docker compose up -d --wait postgres
 set -a; . ./.env; set +a
-export CATEDRA_KAFKA_MAX_RETRIES=3 CATEDRA_KAFKA_INITIAL_BACKOFF=1s CATEDRA_SYNC_INITIAL_DELAY=10s CATEDRA_SYNC_CHECK_INTERVAL=5m
 ./mvnw spring-boot:run
 ```
 
-La segunda línea de `export` repite los parámetros de ajuste del compose (ver arriba), que no están en `.env`. El servicio se conecta a `localhost` en el puerto `POSTGRES_PORT`.
+El servicio se conecta a `localhost` en el puerto `POSTGRES_PORT`.
 
 ## Documentación de la API
 
@@ -129,11 +129,11 @@ La cátedra avisa cada versión nueva con un evento `CatalogUpdated` en Kafka. E
 4. Si la incremental falla (falta el historial de una versión, un dato inválido, la base lo rechaza) o Redis no responde, cae al snapshot completo, que en **una sola transacción** aplica los datos, avanza la versión y guarda el `eventId`. El error de la incremental solo se registra si también falla el snapshot. El tipo del último intento queda en `sync_state`.
 5. Recién después confirma el offset en Kafka. Si el servicio cae antes, Kafka reentrega el evento y el `eventId` evita repetir el efecto.
 
-Un fallo al procesar se reintenta `CATEDRA_KAFKA_MAX_RETRIES` veces (3 en el compose), esperando 1, 2 y 4 segundos (`CATEDRA_KAFKA_INITIAL_BACKOFF`, que se duplica en cada reintento). Si se agotan los reintentos, o el mensaje no se puede interpretar, se registra un error y se pasa al siguiente mensaje: no hay cola de eventos muertos. Lo que una notificación perdida deja atrasado lo recupera la verificación de versión, que se explica a continuación.
+Un fallo al procesar se reintenta `CATEDRA_KAFKA_MAX_RETRIES` veces (3 por defecto), esperando 1, 2 y 4 segundos (`CATEDRA_KAFKA_INITIAL_BACKOFF`, que se duplica en cada reintento). Si se agotan los reintentos, o el mensaje no se puede interpretar, se registra un error y se pasa al siguiente mensaje: no hay cola de eventos muertos. Lo que una notificación perdida deja atrasado lo recupera la verificación de versión, que se explica a continuación.
 
 ### Verificación de versión
 
-Kafka solo avisa: si una notificación se pierde, la copia queda atrasada. Para eso el servicio **compara su versión con la de Redis por su cuenta**, sin esperar un evento: unos segundos después de arrancar (`CATEDRA_SYNC_INITIAL_DELAY`) y después cada `CATEDRA_SYNC_CHECK_INTERVAL` (5 minutos en el compose).
+Kafka solo avisa: si una notificación se pierde, la copia queda atrasada. Para eso el servicio **compara su versión con la de Redis por su cuenta**, sin esperar un evento: unos segundos después de arrancar (`CATEDRA_SYNC_INITIAL_DELAY`) y después cada `CATEDRA_SYNC_CHECK_INTERVAL` (5 minutos por defecto).
 
 Aplica la misma decisión de la tabla de arriba, sin evento que registrar: si la copia está al día no hace nada (una sola lectura a Redis), si está atrasada aplica las versiones que faltan y, **con la base vacía, trae el snapshot**; así un servicio recién instalado se llena solo, sin esperar a un evento. Comparte el candado con el consumidor de Kafka: una verificación y un evento no se cruzan.
 
@@ -170,6 +170,44 @@ curl localhost:8081/api/sync/status -H "Authorization: Bearer <id_token>"
 Una base que nunca se sincronizó devuelve `localVersion` en `0` y el resto en `null`: es un estado normal, no un error. Si una sincronización falla, `lastStatus` queda en `ERROR` hasta que una verificación posterior encuentra la copia al día.
 
 **Los errores se guardan sin datos sensibles.** De una falla al hablar con la cátedra se guarda la clase y el mensaje (por ejemplo `CatedraUnavailableException: No se pudo conectar con la cátedra`), que escribimos nosotros. De cualquier otra excepción se guarda solo el nombre de la clase: su mensaje (el de la base de datos, por ejemplo) puede traer la sentencia SQL, nombres de columnas o valores. El detalle completo queda en el log del servicio.
+
+### Búsqueda de profesionales
+
+`GET /api/professionals` busca sobre la copia local del catálogo; nunca consulta a la cátedra. **Requiere un JWT válido** (cualquier usuario autenticado).
+
+| Parámetro | Descripción |
+| --- | --- |
+| `categoryId` | Solo los de esa categoría |
+| `name` | Texto parcial sobre «nombre apellido» juntos, **sin distinguir mayúsculas ni tildes**: `ana gom` o `GOMEZ` encuentran a «Ana Gómez». Hasta 100 caracteres. Un `%` o un `_` se busca como texto, no como comodín |
+| `enabled` | `true` o `false`; sin valor devuelve habilitados y deshabilitados |
+| `available` | `true`: tiene al menos un horario semanal habilitado; `false`: no tiene ninguno. Se mira la agenda local, no las ocupaciones reales de la cátedra |
+| `page`, `size` | Página (desde 0) y tamaño. Por defecto `size=20`; un valor mayor que `CATALOGO_PAGE_MAX_SIZE` se reduce a ese tope |
+| `sort` | `id`, `firstName` o `lastName`, con `,asc` o `,desc` (se puede repetir). Por defecto, apellido y nombre. Cualquier otro campo responde `400` |
+
+```bash
+curl "localhost:8081/api/professionals?name=gomez&available=true&size=10&sort=lastName,asc" \
+  -H "Authorization: Bearer <id_token>"
+```
+
+La respuesta es un arreglo y el total y los enlaces van en las cabeceras, como en JHipster: `X-Total-Count` con el total de profesionales que cumplen el criterio, y `Link` con las páginas `first`, `prev`, `next` y `last`, que conservan los mismos filtros y el mismo orden.
+
+```json
+[
+  {
+    "id": 15,
+    "categoryId": 1,
+    "categoryName": "Cardiologia",
+    "firstName": "Ana",
+    "lastName": "Gómez",
+    "enabled": true,
+    "weeklySchedules": [
+      { "dayOfWeek": "MONDAY", "startTime": "09:00:00", "endTime": "12:00:00", "slotDurationMinutes": 30 }
+    ]
+  }
+]
+```
+
+`weeklySchedules` trae solo los horarios habilitados, ordenados por día de la semana y hora de inicio. Una página cuesta una cantidad fija de consultas (la página, el total, las categorías y los horarios), sin importar cuántos profesionales traiga.
 
 ## Tests
 

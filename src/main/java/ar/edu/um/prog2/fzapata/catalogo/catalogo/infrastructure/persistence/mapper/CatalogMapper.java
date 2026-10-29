@@ -51,4 +51,44 @@ public class CatalogMapper {
                 .updatedAt(schedule.getUpdatedAt())
                 .build();
     }
+
+    public ProfessionalCategory toDomainModel(ProfessionalCategoryEntity entity) {
+        if (entity == null) return null;
+        return ProfessionalCategory.builder()
+                .id(entity.getId())
+                .name(entity.getName())
+                .description(entity.getDescription())
+                .enabled(entity.isEnabled())
+                .createdAt(entity.getCreatedAt())
+                .updatedAt(entity.getUpdatedAt())
+                .build();
+    }
+
+    public Professional toDomainModel(ProfessionalEntity entity) {
+        if (entity == null) return null;
+        return Professional.builder()
+                .id(entity.getId())
+                .categoryId(entity.getCategoryId())
+                .firstName(entity.getFirstName())
+                .lastName(entity.getLastName())
+                .enabled(entity.isEnabled())
+                .createdAt(entity.getCreatedAt())
+                .updatedAt(entity.getUpdatedAt())
+                .build();
+    }
+
+    public WeeklySchedule toDomainModel(WeeklyScheduleEntity entity) {
+        if (entity == null) return null;
+        return WeeklySchedule.builder()
+                .id(entity.getId())
+                .professionalId(entity.getProfessionalId())
+                .dayOfWeek(entity.getDayOfWeek())
+                .startTime(entity.getStartTime())
+                .endTime(entity.getEndTime())
+                .slotDurationMinutes(entity.getSlotDurationMinutes())
+                .enabled(entity.isEnabled())
+                .createdAt(entity.getCreatedAt())
+                .updatedAt(entity.getUpdatedAt())
+                .build();
+    }
 }
