@@ -209,6 +209,49 @@ La respuesta es un arreglo y el total y los enlaces van en las cabeceras, como e
 
 `weeklySchedules` trae solo los horarios habilitados, ordenados por día de la semana y hora de inicio. Una página cuesta una cantidad fija de consultas (la página, el total, las categorías y los horarios), sin importar cuántos profesionales traiga.
 
+### Detalle de un profesional
+
+`GET /api/professionals/{id}` devuelve la **agenda vigente** de un profesional: es lo que consulta el servicio de turnos. Requiere un JWT válido.
+
+```bash
+curl "localhost:8081/api/professionals/15" -H "Authorization: Bearer <id_token>"
+```
+
+Es el mismo objeto que trae la lista, pero `weeklySchedules` incluye **todos** los horarios del profesional, también los deshabilitados, y cada uno con su `id` y su `enabled`, ordenados por día de la semana y hora de inicio. Un profesional deshabilitado, o de una categoría deshabilitada, se devuelve igual (con `enabled` en `false`): lo decide quien consume.
+
+```json
+{
+  "id": 15,
+  "categoryId": 1,
+  "categoryName": "Cardiologia",
+  "firstName": "Ana",
+  "lastName": "Gómez",
+  "enabled": true,
+  "weeklySchedules": [
+    { "id": 101, "dayOfWeek": "MONDAY", "startTime": "09:00:00", "endTime": "12:00:00", "slotDurationMinutes": 30, "enabled": true },
+    { "id": 102, "dayOfWeek": "TUESDAY", "startTime": "14:00:00", "endTime": "18:00:00", "slotDurationMinutes": 20, "enabled": false }
+  ]
+}
+```
+
+Un id que no existe responde `404` con el código `PROFESSIONAL_NOT_FOUND`; un id que no es un número, `400`.
+
+### Categorías
+
+`GET /api/professional-categories` lista las categorías de la copia local. Requiere un JWT válido.
+
+| Parámetro | Descripción |
+| --- | --- |
+| `enabled` | `true` o `false`; sin valor devuelve habilitadas y deshabilitadas |
+| `page`, `size` | Igual que en profesionales: `size=20` por defecto y tope `CATALOGO_PAGE_MAX_SIZE` |
+| `sort` | `id` o `name`, con `,asc` o `,desc`. Por defecto, `name`. Cualquier otro campo responde `400` |
+
+La respuesta es un arreglo con `X-Total-Count` y `Link`, como la búsqueda de profesionales:
+
+```json
+[ { "id": 1, "name": "Cardiologia", "description": "Corazón y circulación", "enabled": true } ]
+```
+
 ## Tests
 
 ```bash

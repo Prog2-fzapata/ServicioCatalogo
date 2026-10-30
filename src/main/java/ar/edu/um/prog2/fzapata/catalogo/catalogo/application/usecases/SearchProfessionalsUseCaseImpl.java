@@ -1,6 +1,5 @@
 package ar.edu.um.prog2.fzapata.catalogo.catalogo.application.usecases;
 
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -36,12 +35,10 @@ public class SearchProfessionalsUseCaseImpl implements SearchProfessionalsUseCas
                 .collect(Collectors.toMap(ProfessionalCategory::getId, ProfessionalCategory::getName));
     }
 
-    // Lunes primero y, dentro de un día, por hora de inicio: así el resumen se lee de corrido
     private Map<Long, List<WeeklySchedule>> schedulesByProfessional(List<Professional> professionals) {
         Set<Long> professionalIds = professionals.stream().map(Professional::getId).collect(Collectors.toSet());
         return weeklyScheduleRepository.findEnabledByProfessionalIds(professionalIds).stream()
-                .sorted(Comparator.comparing(WeeklySchedule::getDayOfWeek)
-                        .thenComparing(WeeklySchedule::getStartTime))
+                .sorted(WeeklySchedule.BY_DAY_AND_START_TIME)
                 .collect(Collectors.groupingBy(WeeklySchedule::getProfessionalId));
     }
 

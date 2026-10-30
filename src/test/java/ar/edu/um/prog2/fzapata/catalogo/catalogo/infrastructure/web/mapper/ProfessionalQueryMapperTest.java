@@ -40,6 +40,7 @@ class ProfessionalQueryMapperTest {
         assertThatThrownBy(() -> mapper.toFilter(null, "a".repeat(ProfessionalQueryMapper.MAX_NAME_LENGTH + 1), null,
                 null))
                 .isInstanceOfSatisfying(InvalidSearchParameterException.class, ex -> {
+                    assertThat(ex.getObjectName()).isEqualTo("professionalSearch");
                     assertThat(ex.getField()).isEqualTo("name");
                     assertThat(ex.getMessage()).contains("100");
                 });

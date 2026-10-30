@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.Professional;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.ProfessionalSummary;
+import ar.edu.um.prog2.fzapata.catalogo.catalogo.infrastructure.web.dto.ProfessionalDetailResponse;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.infrastructure.web.dto.ProfessionalSummaryResponse;
 
 class ProfessionalDtoMapperTest {
@@ -54,5 +55,40 @@ class ProfessionalDtoMapperTest {
     @Test
     void mapsNullToNull() {
         assertThat(mapper.toResponse(null)).isNull();
+    }
+
+    @Test
+    void theDetailKeepsTheIdAndTheEnabledFlagOfEachSchedule() {
+        var tuesday = schedule(101, 15);
+        tuesday.setDayOfWeek(DayOfWeek.TUESDAY);
+        tuesday.setStartTime(LocalTime.of(14, 0));
+        tuesday.setEndTime(LocalTime.of(18, 0));
+        tuesday.setSlotDurationMinutes(20);
+        tuesday.setEnabled(false);
+        Professional professional = professional(15, 1);
+        professional.setEnabled(false);
+
+        ProfessionalDetailResponse response = mapper
+                .toDetailResponse(new ProfessionalSummary(professional, "Clinica medica", List.of(tuesday)));
+
+        assertThat(response.getId()).isEqualTo(15L);
+        assertThat(response.getCategoryId()).isEqualTo(1L);
+        assertThat(response.getCategoryName()).isEqualTo("Clinica medica");
+        assertThat(response.getFirstName()).isEqualTo("Nombre15");
+        assertThat(response.getLastName()).isEqualTo("Apellido15");
+        assertThat(response.isEnabled()).isFalse();
+        assertThat(response.getWeeklySchedules()).singleElement().satisfies(item -> {
+            assertThat(item.getId()).isEqualTo(101L);
+            assertThat(item.getDayOfWeek()).isEqualTo(DayOfWeek.TUESDAY);
+            assertThat(item.getStartTime()).isEqualTo(LocalTime.of(14, 0));
+            assertThat(item.getEndTime()).isEqualTo(LocalTime.of(18, 0));
+            assertThat(item.getSlotDurationMinutes()).isEqualTo(20);
+            assertThat(item.isEnabled()).isFalse();
+        });
+    }
+
+    @Test
+    void mapsNullToNullInTheDetailToo() {
+        assertThat(mapper.toDetailResponse(null)).isNull();
     }
 }

@@ -6,6 +6,7 @@ import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -14,6 +15,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.application.service.CatalogService;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.PagedResult;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.ProfessionalSummary;
+import ar.edu.um.prog2.fzapata.catalogo.catalogo.infrastructure.web.dto.ProfessionalDetailResponse;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.infrastructure.web.dto.ProfessionalSummaryResponse;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.infrastructure.web.mapper.ProfessionalDtoMapper;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.infrastructure.web.mapper.ProfessionalQueryMapper;
@@ -53,5 +55,11 @@ public class ProfessionalController {
                 .headers(PaginationHeaders.create(ServletUriComponentsBuilder.fromCurrentRequest(),
                         result.pageQuery().page(), result.pageQuery().size(), result.totalElements()))
                 .body(body);
+    }
+
+    @Operation(summary = "Devuelve la agenda vigente de un profesional, con todos sus horarios semanales")
+    @GetMapping("/{id}")
+    public ProfessionalDetailResponse getProfessional(@PathVariable Long id) {
+        return professionalDtoMapper.toDetailResponse(catalogService.getProfessional(id));
     }
 }

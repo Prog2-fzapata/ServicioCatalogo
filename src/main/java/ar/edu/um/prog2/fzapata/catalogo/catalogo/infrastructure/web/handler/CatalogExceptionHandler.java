@@ -11,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import ar.edu.um.prog2.fzapata.catalogo.catalogo.application.exception.ProfessionalNotFoundException;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.infrastructure.web.exception.InvalidSearchParameterException;
 import ar.edu.um.prog2.fzapata.catalogo.shared.web.FieldViolation;
 import ar.edu.um.prog2.fzapata.catalogo.shared.web.ProblemDetailsFactory;
@@ -23,8 +24,6 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class CatalogExceptionHandler {
 
-    private static final String SEARCH_OBJECT = "professionalSearch";
-
     private final ProblemDetailsFactory problemDetailsFactory;
 
     // Mismo formato que los errores de validación del body: VALIDATION_ERROR con fieldErrors
@@ -33,8 +32,15 @@ public class CatalogExceptionHandler {
             HttpServletRequest request) {
         ProblemDetail problem = problemDetailsFactory.of(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR",
                 "Los parámetros de búsqueda no son válidos", request.getRequestURI());
-        problem.setProperty("fieldErrors", List.of(new FieldViolation(SEARCH_OBJECT, ex.getField(), ex.getMessage())));
+        problem.setProperty("fieldErrors", List.of(new FieldViolation(ex.getObjectName(), ex.getField(), ex.getMessage())));
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).contentType(MediaType.APPLICATION_PROBLEM_JSON)
                 .body(problem);
+    }
+
+    @ExceptionHandler(ProfessionalNotFoundException.class)
+    public ResponseEntity<ProblemDetail> handleProfessionalNotFound(ProfessionalNotFoundException ex,
+            HttpServletRequest request) {
+        return problemDetailsFactory.response(HttpStatus.NOT_FOUND, "PROFESSIONAL_NOT_FOUND", ex.getMessage(),
+                request.getRequestURI());
     }
 }
