@@ -1,0 +1,61 @@
+services:
+  postgres:
+    image: postgres:18
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${CATALOGO_DB_NAME}
+      POSTGRES_USER: ${CATALOGO_DB_USER}
+      POSTGRES_PASSWORD: ${CATALOGO_DB_PASSWORD}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  catalogo:
+    build: .
+    restart: unless-stopped
+    environment:
+      POSTGRES_HOST: postgres
+      CATALOGO_DB_NAME: ${CATALOGO_DB_NAME}
+      CATALOGO_DB_USER: ${CATALOGO_DB_USER}
+      CATALOGO_DB_PASSWORD: ${CATALOGO_DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      CATEDRA_BASE_URL: ${CATEDRA_BASE_URL}
+      CATEDRA_JWT: ${CATEDRA_JWT}
+      CATEDRA_REDIS_HOST: ${CATEDRA_REDIS_HOST}
+      CATEDRA_REDIS_PORT: ${CATEDRA_REDIS_PORT}
+      CATEDRA_REDIS_USERNAME: ${CATEDRA_REDIS_USERNAME}
+      CATEDRA_REDIS_PASSWORD: ${CATEDRA_REDIS_PASSWORD}
+      CATEDRA_SNAPSHOT_PATH: ${CATEDRA_SNAPSHOT_PATH}
+      CATEDRA_REDIS_KEY_METADATA: ${CATEDRA_REDIS_KEY_METADATA}
+      CATEDRA_REDIS_KEY_CHANGES_PREFIX: ${CATEDRA_REDIS_KEY_CHANGES_PREFIX}
+      CATEDRA_REDIS_KEY_CATEGORIES: ${CATEDRA_REDIS_KEY_CATEGORIES}
+      CATEDRA_REDIS_KEY_PROFESSIONALS: ${CATEDRA_REDIS_KEY_PROFESSIONALS}
+      CATEDRA_REDIS_KEY_WEEKLY_SCHEDULES: ${CATEDRA_REDIS_KEY_WEEKLY_SCHEDULES}
+      CATEDRA_KAFKA_BOOTSTRAP_SERVERS: ${CATEDRA_KAFKA_BOOTSTRAP_SERVERS}
+      CATEDRA_KAFKA_GROUP_ID: ${CATEDRA_KAFKA_GROUP_ID}
+      CATEDRA_KAFKA_CATALOG_TOPIC: ${CATEDRA_KAFKA_CATALOG_TOPIC}
+      # Parámetros de ajuste opcionales: el valor por defecto está en application.properties. Sin valor aquí, Compose
+      # los pasa solo si están definidos en el shell o en el .env, y en ese caso ganan
+      CATEDRA_KAFKA_MAX_RETRIES:
+      CATEDRA_KAFKA_INITIAL_BACKOFF:
+      CATEDRA_SYNC_INITIAL_DELAY:
+      CATEDRA_SYNC_CHECK_INTERVAL:
+      CATALOGO_PAGE_MAX_SIZE:
+      PASSWORD_ARGON2_MEMORY_KIB: ${PASSWORD_ARGON2_MEMORY_KIB}
+      PASSWORD_ARGON2_ITERATIONS: ${PASSWORD_ARGON2_ITERATIONS}
+      PASSWORD_ARGON2_PARALLELISM: ${PASSWORD_ARGON2_PARALLELISM}
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
+    ports:
+      - "127.0.0.1:${CATALOGO_PORT:-8081}:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
