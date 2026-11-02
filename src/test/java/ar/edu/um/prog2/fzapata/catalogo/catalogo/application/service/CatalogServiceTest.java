@@ -82,7 +82,7 @@ class CatalogServiceTest {
 
     @Test
     void returnsTheRequestedProfessional() {
-        ProfessionalSummary summary = new ProfessionalSummary(professional(10, 1), "Cat", List.of());
+        ProfessionalSummary summary = new ProfessionalSummary(professional(10, 1), "Cat", true, List.of());
         when(getProfessionalUseCase.getProfessional(10L)).thenReturn(Optional.of(summary));
 
         assertThat(service.getProfessional(10L)).isSameAs(summary);

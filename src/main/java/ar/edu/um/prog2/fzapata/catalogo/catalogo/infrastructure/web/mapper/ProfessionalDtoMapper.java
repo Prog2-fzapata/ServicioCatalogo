@@ -38,6 +38,7 @@ public class ProfessionalDtoMapper {
                 .id(summary.professional().getId())
                 .categoryId(summary.professional().getCategoryId())
                 .categoryName(summary.categoryName())
+                .categoryEnabled(summary.categoryEnabled())
                 .firstName(summary.professional().getFirstName())
                 .lastName(summary.professional().getLastName())
                 .enabled(summary.professional().isEnabled())

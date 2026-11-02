@@ -30,7 +30,7 @@ class ProfessionalDtoMapperTest {
         monday.setSlotDurationMinutes(30);
 
         ProfessionalSummaryResponse response = mapper
-                .toResponse(new ProfessionalSummary(professional, "Clinica medica", List.of(monday)));
+                .toResponse(new ProfessionalSummary(professional, "Clinica medica", true, List.of(monday)));
 
         assertThat(response.getId()).isEqualTo(15L);
         assertThat(response.getCategoryId()).isEqualTo(1L);
@@ -48,7 +48,7 @@ class ProfessionalDtoMapperTest {
 
     @Test
     void aProfessionalWithoutSchedulesHasAnEmptyList() {
-        assertThat(mapper.toResponse(new ProfessionalSummary(professional(15, 1), "Cat", List.of()))
+        assertThat(mapper.toResponse(new ProfessionalSummary(professional(15, 1), "Cat", true, List.of()))
                 .getWeeklySchedules()).isEmpty();
     }
 
@@ -69,7 +69,7 @@ class ProfessionalDtoMapperTest {
         professional.setEnabled(false);
 
         ProfessionalDetailResponse response = mapper
-                .toDetailResponse(new ProfessionalSummary(professional, "Clinica medica", List.of(tuesday)));
+                .toDetailResponse(new ProfessionalSummary(professional, "Clinica medica", true, List.of(tuesday)));
 
         assertThat(response.getId()).isEqualTo(15L);
         assertThat(response.getCategoryId()).isEqualTo(1L);
@@ -85,6 +85,17 @@ class ProfessionalDtoMapperTest {
             assertThat(item.getSlotDurationMinutes()).isEqualTo(20);
             assertThat(item.isEnabled()).isFalse();
         });
+    }
+
+    @Test
+    void theDetailReportsWhetherTheCategoryIsEnabled() {
+        ProfessionalDetailResponse enabled = mapper
+                .toDetailResponse(new ProfessionalSummary(professional(15, 1), "Cat", true, List.of()));
+        ProfessionalDetailResponse disabled = mapper
+                .toDetailResponse(new ProfessionalSummary(professional(15, 1), "Cat", false, List.of()));
+
+        assertThat(enabled.isCategoryEnabled()).isTrue();
+        assertThat(disabled.isCategoryEnabled()).isFalse();
     }
 
     @Test
