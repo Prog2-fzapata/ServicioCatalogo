@@ -62,6 +62,7 @@ class GetProfessionalUseCaseImplTest {
 
         assertThat(summary.professional()).isSameAs(ana);
         assertThat(summary.categoryName()).isEqualTo("Categoria 1");
+        assertThat(summary.categoryEnabled()).isTrue();
         assertThat(summary.weeklySchedules()).extracting(WeeklySchedule::getId).containsExactly(100L);
     }
 
@@ -95,6 +96,7 @@ class GetProfessionalUseCaseImplTest {
 
         assertThat(summary.professional().isEnabled()).isFalse();
         assertThat(summary.categoryName()).isEqualTo("Categoria 1");
+        assertThat(summary.categoryEnabled()).isFalse();
         assertThat(summary.weeklySchedules()).isEmpty();
     }
 
@@ -107,13 +109,32 @@ class GetProfessionalUseCaseImplTest {
         verify(weeklyScheduleRepository, never()).findByProfessionalId(any());
     }
 
-    // La clave foránea lo impide; si la copia local quedara alterada, el nombre queda vacío y no se cae la consulta
+    // El estado de la categoría es independiente del del profesional
     @Test
-    void aMissingCategoryLeavesTheNameEmpty() {
+    void anEnabledProfessionalInADisabledCategoryReportsTheCategoryAsDisabled() {
+        var disabledCategory = category(1);
+        disabledCategory.setEnabled(false);
+        when(professionalRepository.findById(10L)).thenReturn(Optional.of(professional(10, 1)));
+        when(professionalCategoryRepository.findById(1L)).thenReturn(Optional.of(disabledCategory));
+        when(weeklyScheduleRepository.findByProfessionalId(10L)).thenReturn(List.of());
+
+        ProfessionalSummary summary = useCase.getProfessional(10L).orElseThrow();
+
+        assertThat(summary.professional().isEnabled()).isTrue();
+        assertThat(summary.categoryEnabled()).isFalse();
+    }
+
+    // La clave foránea lo impide; si la copia local quedara alterada, el nombre queda vacío y no se cae la consulta.
+    // Sin saber si la categoría está habilitada se la informa como deshabilitada: ante la duda no se ofrecen horarios
+    @Test
+    void aMissingCategoryLeavesTheNameEmptyAndIsReportedAsDisabled() {
         when(professionalRepository.findById(10L)).thenReturn(Optional.of(professional(10, 1)));
         when(professionalCategoryRepository.findById(1L)).thenReturn(Optional.empty());
         when(weeklyScheduleRepository.findByProfessionalId(10L)).thenReturn(List.of());
 
-        assertThat(useCase.getProfessional(10L).orElseThrow().categoryName()).isNull();
+        ProfessionalSummary summary = useCase.getProfessional(10L).orElseThrow();
+
+        assertThat(summary.categoryName()).isNull();
+        assertThat(summary.categoryEnabled()).isFalse();
     }
 }

@@ -223,13 +223,14 @@ La respuesta es un arreglo y el total y los enlaces van en las cabeceras, como e
 curl "localhost:8081/api/professionals/15" -H "Authorization: Bearer <id_token>"
 ```
 
-Es el mismo objeto que trae la lista, pero `weeklySchedules` incluye **todos** los horarios del profesional, también los deshabilitados, y cada uno con su `id` y su `enabled`, ordenados por día de la semana y hora de inicio. Un profesional deshabilitado, o de una categoría deshabilitada, se devuelve igual (con `enabled` en `false`): lo decide quien consume.
+Es el mismo objeto que trae la lista, pero `weeklySchedules` incluye **todos** los horarios del profesional, también los deshabilitados, y cada uno con su `id` y su `enabled`, ordenados por día de la semana y hora de inicio. El detalle agrega `categoryEnabled`, que dice si la categoría del profesional está habilitada (la lista no lo trae). Un profesional deshabilitado, o de una categoría deshabilitada, se devuelve igual: `enabled` es el del profesional y `categoryEnabled` el de su categoría, y lo decide quien consume (turnos no ofrece horarios si cualquiera de los dos está en `false`).
 
 ```json
 {
   "id": 15,
   "categoryId": 1,
   "categoryName": "Cardiologia",
+  "categoryEnabled": true,
   "firstName": "Ana",
   "lastName": "Gómez",
   "enabled": true,

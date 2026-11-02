@@ -98,7 +98,7 @@ class ProfessionalControllerTest {
     @Test
     void returnsAnArrayOfProfessionalsWithTheirCategoryAndSchedules() throws Exception {
         givenResult(new PagedResult<>(List.of(
-                new ProfessionalSummary(professional(15, 1), category(1).getName(), List.of(monday()))),
+                new ProfessionalSummary(professional(15, 1), category(1).getName(), true, List.of(monday()))),
                 1, new PageQuery(0, 20)));
 
         mockMvc.perform(get("/api/professionals").with(jwt()))
@@ -107,6 +107,8 @@ class ProfessionalControllerTest {
                 .andExpect(jsonPath("$[0].id").value(15))
                 .andExpect(jsonPath("$[0].categoryId").value(1))
                 .andExpect(jsonPath("$[0].categoryName").value("Categoria 1"))
+                // La lista no lo trae: solo el detalle, que es lo que usa Turnos
+                .andExpect(jsonPath("$[0].categoryEnabled").doesNotExist())
                 .andExpect(jsonPath("$[0].firstName").value("Nombre15"))
                 .andExpect(jsonPath("$[0].lastName").value("Apellido15"))
                 .andExpect(jsonPath("$[0].enabled").value(true))
@@ -129,7 +131,7 @@ class ProfessionalControllerTest {
 
     @Test
     void reportsTheTotalAndTheLinksInTheHeaders() throws Exception {
-        givenResult(new PagedResult<>(List.of(new ProfessionalSummary(professional(15, 1), "Cat", List.of())), 5,
+        givenResult(new PagedResult<>(List.of(new ProfessionalSummary(professional(15, 1), "Cat", true, List.of())), 5,
                 new PageQuery(1, 2)));
 
         mockMvc.perform(get("/api/professionals?name=ana&page=1&size=2").with(jwt()))
@@ -239,13 +241,14 @@ class ProfessionalControllerTest {
         disabled.setSlotDurationMinutes(20);
         disabled.setEnabled(false);
         when(catalogService.getProfessional(15L)).thenReturn(
-                new ProfessionalSummary(professional(15, 1), "Categoria 1", List.of(monday(), disabled)));
+                new ProfessionalSummary(professional(15, 1), "Categoria 1", true, List.of(monday(), disabled)));
 
         mockMvc.perform(get("/api/professionals/15").with(jwt()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(15))
                 .andExpect(jsonPath("$.categoryId").value(1))
                 .andExpect(jsonPath("$.categoryName").value("Categoria 1"))
+                .andExpect(jsonPath("$.categoryEnabled").value(true))
                 .andExpect(jsonPath("$.firstName").value("Nombre15"))
                 .andExpect(jsonPath("$.lastName").value("Apellido15"))
                 .andExpect(jsonPath("$.enabled").value(true))
@@ -261,11 +264,22 @@ class ProfessionalControllerTest {
     }
 
     @Test
+    void aProfessionalOfADisabledCategoryIsReturnedWithCategoryEnabledFalse() throws Exception {
+        when(catalogService.getProfessional(15L))
+                .thenReturn(new ProfessionalSummary(professional(15, 1), "Categoria 1", false, List.of()));
+
+        mockMvc.perform(get("/api/professionals/15").with(jwt()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.enabled").value(true))
+                .andExpect(jsonPath("$.categoryEnabled").value(false));
+    }
+
+    @Test
     void aDisabledProfessionalIsReturnedWithEnabledFalse() throws Exception {
         var disabled = professional(15, 1);
         disabled.setEnabled(false);
         when(catalogService.getProfessional(15L))
-                .thenReturn(new ProfessionalSummary(disabled, "Categoria 1", List.of()));
+                .thenReturn(new ProfessionalSummary(disabled, "Categoria 1", true, List.of()));
 
         mockMvc.perform(get("/api/professionals/15").with(jwt()))
                 .andExpect(status().isOk())
