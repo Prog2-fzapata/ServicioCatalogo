@@ -64,10 +64,13 @@ class SecurityRejectionTest {
     private final SecretKey jwtSecretKey;
 
     private String token(SecretKey key, Instant issuedAt, Instant expiresAt) {
-        JwtClaimsSet claims = JwtClaimsSet.builder().subject("maria").issuedAt(issuedAt).expiresAt(expiresAt)
-                .claim(JwtClaims.AUTHORITIES, "ROLE_USER").build();
+        JwtClaimsSet.Builder claims = JwtClaimsSet.builder().subject("maria").issuedAt(issuedAt)
+                .claim(JwtClaims.AUTHORITIES, "ROLE_USER");
+        if (expiresAt != null) {
+            claims.expiresAt(expiresAt);
+        }
         return new NimbusJwtEncoder(new ImmutableSecret<>(key))
-                .encode(JwtEncoderParameters.from(JwsHeader.with(MacAlgorithm.HS512).build(), claims))
+                .encode(JwtEncoderParameters.from(JwsHeader.with(MacAlgorithm.HS512).build(), claims.build()))
                 .getTokenValue();
     }
 
@@ -75,7 +78,7 @@ class SecurityRejectionTest {
         return mockMvc.perform(get("/api/probe").header(HttpHeaders.AUTHORIZATION, "Bearer " + bearer));
     }
 
-    // Los cuatro rechazos del filtro deben verse igual: no se revela por qué falló el token
+    // Todos los rechazos del filtro deben verse igual: no se revela por qué falló el token
     private void expectUnauthorizedProblem(ResultActions result) throws Exception {
         result.andExpect(status().isUnauthorized())
                 .andExpect(header().string(HttpHeaders.WWW_AUTHENTICATE, "Bearer"))
@@ -109,6 +112,12 @@ class SecurityRejectionTest {
         Instant now = Instant.now();
 
         expectUnauthorizedProblem(callWithBearer(token(otherKey, now, now.plus(1, ChronoUnit.HOURS))));
+    }
+
+    // Bien firmado y con auth, pero sin exp: no vencería nunca, así que no se acepta (A26)
+    @Test
+    void tokenWithoutExpiryIsRejectedWithProblemJson() throws Exception {
+        expectUnauthorizedProblem(callWithBearer(token(jwtSecretKey, Instant.now(), null)));
     }
 
     @Test
