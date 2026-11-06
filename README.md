@@ -110,7 +110,7 @@ curl localhost:8081/api/account -H "Authorization: Bearer <id_token>"
 
 El token dura 24 horas (30 días con `rememberMe`). `username` acepta el login o el email.
 
-Sin token, o con uno vencido, mal formado o firmado con otra clave, la respuesta es `401` en `application/problem+json` con `code` `UNAUTHORIZED` y la cabecera `WWW-Authenticate: Bearer`; no se informa el motivo. Un usuario autenticado sin el rol necesario recibe `403` con `code` `FORBIDDEN`.
+Sin token, o con uno vencido, sin `exp` (no vencería nunca, así que no se acepta), mal formado o firmado con otra clave, la respuesta es `401` en `application/problem+json` con `code` `UNAUTHORIZED` y la cabecera `WWW-Authenticate: Bearer`; no se informa el motivo. Un usuario autenticado sin el rol necesario recibe `403` con `code` `FORBIDDEN`.
 
 ## Sincronización del catálogo
 
