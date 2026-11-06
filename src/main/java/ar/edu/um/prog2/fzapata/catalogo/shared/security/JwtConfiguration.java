@@ -12,6 +12,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
+import org.springframework.security.oauth2.jwt.JwtTimestampValidator;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 
@@ -38,7 +39,16 @@ public class JwtConfiguration {
 
     @Bean
     JwtDecoder jwtDecoder(SecretKey jwtSecretKey) {
-        return NimbusJwtDecoder.withSecretKey(jwtSecretKey).macAlgorithm(ALGORITHM).build();
+        NimbusJwtDecoder decoder = NimbusJwtDecoder.withSecretKey(jwtSecretKey).macAlgorithm(ALGORITHM).build();
+        decoder.setJwtValidator(timestampValidatorRequiringExpiry());
+        return decoder;
+    }
+
+    // El validador por defecto controla la vigencia (exp, nbf) pero acepta un token sin exp, que no vencería nunca
+    private static JwtTimestampValidator timestampValidatorRequiringExpiry() {
+        JwtTimestampValidator validator = new JwtTimestampValidator();
+        validator.setAllowEmptyExpiryClaim(false);
+        return validator;
     }
 
     @Bean
