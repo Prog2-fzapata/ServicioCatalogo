@@ -1,5 +1,8 @@
 package ar.edu.um.prog2.fzapata.catalogo.usuario.infrastructure.web.handler;
 
+import java.sql.SQLException;
+
+import org.slf4j.spi.LoggingEventBuilder;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -47,6 +50,8 @@ public class UserExceptionHandler {
     @ExceptionHandler(InvalidCredentialsException.class)
     public ResponseEntity<ProblemDetail> handleInvalidCredentials(InvalidCredentialsException ex,
             HttpServletRequest request) {
+        // Sin el login ni el email: el caso de uso no distingue por qué falló y el log tampoco debe hacerlo
+        log.atWarn().setMessage("Credenciales rechazadas").addKeyValue("path", request.getRequestURI()).log();
         return problemDetailsFactory.response(HttpStatus.UNAUTHORIZED, "INVALID_CREDENTIALS", ex.getMessage(),
                 request.getRequestURI());
     }
@@ -68,7 +73,14 @@ public class UserExceptionHandler {
         if (cause.contains(EMAIL_CONSTRAINT)) {
             return handleEmailAlreadyUsed(new EmailAlreadyUsedException(), request);
         }
-        log.error("Violación de integridad no prevista en {}", request.getRequestURI(), ex);
+        // El mensaje de PostgreSQL repite el valor que chocó (el login o el email): se registra solo la clase y el SQLSTATE
+        Throwable root = ex.getMostSpecificCause();
+        LoggingEventBuilder line = log.atError().setMessage("Violación de integridad no prevista")
+                .addKeyValue("path", request.getRequestURI()).addKeyValue("exception", root.getClass().getSimpleName());
+        if (root instanceof SQLException sqlException) {
+            line = line.addKeyValue("sqlState", sqlException.getSQLState());
+        }
+        line.log();
         return problemDetailsFactory.internalError(request.getRequestURI());
     }
 }
