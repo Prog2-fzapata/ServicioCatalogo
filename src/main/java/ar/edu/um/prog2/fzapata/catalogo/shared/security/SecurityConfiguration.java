@@ -22,35 +22,44 @@ public class SecurityConfiguration {
     // Únicos endpoints públicos de la API (POST); también los usa la documentación OpenAPI
     static final List<String> PUBLIC_API_PATHS = List.of("/api/register", "/api/authenticate");
 
+    // Es una lista ordenada de filtros
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http, ProblemDetailsSecurityHandler problemHandler) {
-        // Sin sesión ni cookies: cada pedido trae su JWT, así que CSRF no aplica
+        // Sin sesión ni cookies: cada pedido trae su JWT, así que deshabilitamos el filtro CSRF
+        // Quita el CsrfFilter
         http.csrf(AbstractHttpConfigurer::disable) // NOSONAR: API sin sesión ni cookies, ver docs/decisiones.md (16)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
+                // Reglas por ruta
                 .authorizeHttpRequests(requests -> requests
                         .requestMatchers(HttpMethod.POST, PUBLIC_API_PATHS.toArray(String[]::new)).permitAll()
                         .requestMatchers("/actuator/health/**", "/v3/api-docs/**", "/swagger-ui/**",
-                                "/swagger-ui.html")
-                        .permitAll()
+                                "/swagger-ui.html").permitAll()
                         .anyRequest().authenticated())
 
+                // Excepciones generales: no está autenticado o no tiene permiso 401/403
                 .exceptionHandling(handling -> handling
                         .authenticationEntryPoint(problemHandler)
                         .accessDeniedHandler(problemHandler))
+
+                // Lee los Bearer Token y sobreescribe el manejo de errores default
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .authenticationEntryPoint(problemHandler)
                         .accessDeniedHandler(problemHandler)
+                        // Tokens JWT, convierte el jwt en un usuario
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())));
 
         return http.build();
     }
 
     // Las autoridades vienen del claim "auth" tal cual (ROLE_USER), sin el prefijo SCOPE_ por defecto
+    // Convierte los claims al objeto Authentication que usa Spring
     private JwtAuthenticationConverter jwtAuthenticationConverter() {
         JwtGrantedAuthoritiesConverter authorities = new JwtGrantedAuthoritiesConverter();
-        authorities.setAuthoritiesClaimName(JwtClaims.AUTHORITIES);
-        authorities.setAuthorityPrefix("");
+        authorities.setAuthoritiesClaimName(JwtClaims.AUTHORITIES); // lee el claim auth
+        authorities.setAuthorityPrefix(""); // sin prefijo SCOPE_
+
+        // Arma el objeto de autenticación, leyendo el auth ya extraído
         JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
         converter.setJwtGrantedAuthoritiesConverter(authorities);
         return converter;

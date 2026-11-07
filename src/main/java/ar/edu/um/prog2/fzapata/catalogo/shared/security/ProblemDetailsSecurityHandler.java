@@ -28,6 +28,7 @@ public class ProblemDetailsSecurityHandler implements AuthenticationEntryPoint, 
     private final ProblemDetailsFactory problemDetailsFactory;
     private final JsonMapper jsonMapper;
 
+    // No estás autenticado
     @Override
     public void commence(HttpServletRequest request, HttpServletResponse response,
             AuthenticationException authException) throws IOException {
@@ -36,6 +37,7 @@ public class ProblemDetailsSecurityHandler implements AuthenticationEntryPoint, 
         write(response, problemDetailsFactory.unauthorized(request.getRequestURI()));
     }
 
+    // No tienes permiso
     @Override
     public void handle(HttpServletRequest request, HttpServletResponse response,
             AccessDeniedException accessDeniedException) throws IOException {
