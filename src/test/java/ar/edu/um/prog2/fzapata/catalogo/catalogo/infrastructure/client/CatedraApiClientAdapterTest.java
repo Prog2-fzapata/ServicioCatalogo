@@ -231,6 +231,15 @@ class CatedraApiClientAdapterTest {
         assertThatThrownBy(adapter::fetchSnapshot).isInstanceOf(CatedraResponseException.class);
     }
 
+    // El mensaje del parser repite el comienzo del cuerpo (un JWT que la cátedra devolvió): no puede viajar como causa
+    @Test
+    void anUnreadableBodyNeitherCarriesItsStartInTheMessageNorKeepsTheCause() {
+        respondWithBody("eyJsecreto.payload no es json");
+
+        assertThatThrownBy(adapter::fetchSnapshot).isInstanceOf(CatedraResponseException.class)
+                .hasNoCause().hasMessageNotContaining("eyJsecreto").hasMessageContaining("StreamReadException");
+    }
+
     @Test
     void unknownDayOfWeekIsReportedAsAnUnusableResponse() {
         respondWithBody(validSnapshotJson().replace("MONDAY", "FUNDAY"));
