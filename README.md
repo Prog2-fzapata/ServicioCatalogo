@@ -60,6 +60,7 @@ No son secretos ni dependen de la máquina, así que **tienen un valor por defec
 | `CATEDRA_KAFKA_MAX_RETRIES` | Reintentos (después del primer intento) ante un fallo al procesar un evento de Kafka. `0` los desactiva | `3` |
 | `CATEDRA_KAFKA_INITIAL_BACKOFF` | Espera antes del primer reintento; cada uno espera el doble del anterior | `1s` |
 | `CATALOGO_PAGE_MAX_SIZE` | Tamaño máximo de página en las búsquedas: un `size` mayor se reduce a este valor | `100` |
+| `LOG_FORMAT` | Formato de los logs: `ecs` (JSON, por defecto), `logstash` (otro JSON) o vacío para el texto de Spring Boot, que no muestra los campos de cada línea (ver «Logs») | `ecs` |
 
 PostgreSQL y el servicio se publican solo en `127.0.0.1`.
 
@@ -259,13 +260,61 @@ La respuesta es un arreglo con `X-Total-Count` y `Link`, como la búsqueda de pr
 [ { "id": 1, "name": "Cardiologia", "description": "Corazón y circulación", "enabled": true } ]
 ```
 
+## Logs
+
+El servicio escribe en la salida estándar (`docker compose logs -f catalogo`) **una línea de JSON por evento** (formato ECS de Spring Boot), a nivel `INFO`. Cada línea tiene un mensaje corto y estable, y sus datos como **campos**, así se filtra por campo sin depender de la redacción:
+
+```json
+{"@timestamp":"2026-11-07T16:54:32Z","log":{"level":"INFO","logger":"…SyncOutcomeLogger"},"service":{"name":"catalogo"},
+ "message":"Evento de catálogo: aplicado","eventId":"e1","eventVersion":55,"syncType":"INCREMENTAL","fromVersion":54,"toVersion":55}
+```
+
+| Campo | Qué es |
+| --- | --- |
+| `eventId`, `eventVersion` | El aviso `CatalogUpdated` de la cátedra que disparó la sincronización: su id y la versión que anuncia |
+| `syncType` | `INCREMENTAL` (cambios leídos de Redis) o `FULL` (snapshot por REST) |
+| `fromVersion`, `toVersion` | La versión de la copia local antes y después de aplicar |
+| `snapshotReason` | Por qué se trajo un snapshot y no la incremental (la base vacía, Redis sin responder, un salto de versiones...) |
+| `path`, `exception`, `sqlState` | En un error propio: la ruta del pedido, el nombre de la clase de la excepción y, si es de la base, su `SQLSTATE` |
+
+Para filtrar: `docker compose logs --no-log-prefix catalogo | jq -c 'select(.toVersion == 55)'`. Para leerlas a ojo, este filtro deja una línea corta por evento (salta lo que no es JSON):
+
+```bash
+docker compose logs -f --no-log-prefix catalogo | jq -R -r 'fromjson? | [.["@timestamp"][11:19], .log.level, .message,
+  (del(.["@timestamp"], .log, .process, .service, .ecs, .message, .tags, .error) | to_entries | map("\(.key)=\(.value)") | join(" ")),
+  (if .error then "(\(.error.type): \(.error.message))" else "" end)] | map(select(. != "")) | join("  ")'
+```
+
+Todas las líneas de log se escriben igual (mensaje fijo y datos como campos), y `LogStyleTest` falla si alguien escribe una de otra forma. `LOG_FORMAT` cambia el formato: `logstash` es otro JSON, y vacío vuelve al texto de Spring Boot, que **no muestra los campos** (solo el mensaje).
+
+| Se registra | Mensaje y campos |
+| --- | --- |
+| Un evento de Kafka, con su resultado | `Evento de catálogo: aplicado` (`syncType`, `fromVersion`, `toVersion`, `snapshotReason` si hubo snapshot) y `Evento de catálogo: nada que aplicar (…)` para un duplicado o una copia que ya estaba al día; ambos con `eventId` y `eventVersion` |
+| La verificación de versión que aplicó algo | `Verificación de versión: aplicado`, con los mismos campos que el evento, sin `eventId` |
+| La cátedra que retrocede de versión (se aplica igual: es la fuente de verdad) | `…: la cátedra retrocedió la versión del catálogo` (`WARN`, `fromVersion`, `toVersion`) |
+| Una vuelta de verificación que falló | `La verificación de versión falló; se reintenta en la próxima vuelta` (`ERROR`, la excepción en `error`) |
+| Un login o una contraseña que no coinciden | `Credenciales rechazadas` (`WARN`, `path`) |
+| Una violación de integridad que no es de login ni de email repetidos | `Violación de integridad no prevista` (`ERROR`, `path`, `exception`, `sqlState`) |
+| Los errores inesperados, con su traza | `Error inesperado` (`ERROR`, `path`, la excepción en `error`) |
+
+La verificación de versión **sin cambios** no sale por defecto: corre cada `CATEDRA_SYNC_CHECK_INTERVAL` (5 minutos) y escribiría la misma línea una y otra vez, así que va a `DEBUG`. Un evento duplicado de Kafka sí queda en `INFO`, porque es la traza de la deduplicación. Los clientes de Kafka vuelcan unas cien líneas con su configuración cada vez que arrancan: `ConsumerConfig` y `AdminClientConfig` están en `WARN` (`logging.level.…` en `application.properties`), y el resto de lo que dice Kafka sigue visible.
+
+**Nunca se escribe:** la contraseña ni el email ni el login de un usuario (tampoco en un intento fallido), el JWT del usuario, el JWT técnico de la cátedra (`CATEDRA_JWT`), la clave de Redis, el secreto de firma (`JWT_SECRET`) ni la contraseña de la base. Cómo se garantiza:
+
+- Una credencial rechazada registra solo la ruta: el caso de uso no distingue si falló el login, la contraseña o la cuenta, y el log tampoco.
+- La violación de integridad inesperada registra la clase y el `SQLSTATE`, no el mensaje de PostgreSQL: ese mensaje repite la fila que chocó (login, email y hash).
+- El cliente REST de la cátedra solo mira el status de un error, nunca su cuerpo; y si una respuesta correcta no se puede leer como JSON, **no pasa la excepción de Spring como causa** de la propia: su mensaje repite el comienzo del cuerpo (por ejemplo un JWT que la cátedra devolvió) y saldría en la traza. Se informa solo el nombre de la clase del problema.
+- Los errores inesperados sí registran la excepción entera (mensaje y traza), porque son los que hay que diagnosticar. El mensaje de una excepción no lo controla el servicio, y por eso el test del criterio compara también las trazas.
+
+Lo comprueba `SecretsNotInLogsIntegrationTest`: con PostgreSQL y Redis reales en contenedores y la cátedra como servidor HTTP local, corre el registro, la autenticación (acertada y fallida), una violación de integridad inesperada y la verificación de versión contra una cátedra que responde `500`, `403`, un cuerpo que no es JSON, una conexión cortada o un snapshot válido, con Redis rechazando la clave. Los errores simulados de la cátedra **repiten a propósito el JWT técnico**. Captura todo lo que se escribe (mensaje, campos, contexto y traza completa con sus causas) y verifica que ningún valor sentinela aparece; antes comprueba que el flujo viajó por donde debía (la respuesta, la fila en la base o la línea esperada), para que no pase en vacío.
+
 ## Tests
 
 ```bash
 ./mvnw verify
 ```
 
-Los tests de integración levantan su propio PostgreSQL 18 y, los del consumidor, un Kafka 4.0 en contenedores descartables (Testcontainers), así que solo requieren Docker en ejecución; no usan el `.env` ni la base del compose.
+Los tests de integración levantan su propio PostgreSQL 18 y, según el caso, un Kafka 4.0 (el consumidor) o un Redis 7 (la lectura de la cátedra y el test de secretos) en contenedores descartables (Testcontainers), así que solo requieren Docker en ejecución; no usan el `.env` ni la base del compose.
 
 ## Decisiones de diseño
 

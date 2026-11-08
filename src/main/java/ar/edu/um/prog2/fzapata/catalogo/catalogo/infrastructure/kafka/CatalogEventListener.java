@@ -23,8 +23,7 @@ public class CatalogEventListener {
     @KafkaListener(topics = "${catedra.contract.kafka-catalog-topic}")
     public void onCatalogUpdated(String payload, Acknowledgment acknowledgment) {
         CatalogUpdatedEvent event = catalogEventMapper.toDomainModel(payload);
-        syncOutcomeLogger.log("Evento " + event.eventId() + " (versión " + event.newVersion() + ")",
-                catalogService.synchronizeForEvent(event));
+        syncOutcomeLogger.logEvent(event.eventId(), event.newVersion(), catalogService.synchronizeForEvent(event));
         acknowledgment.acknowledge();
     }
 }

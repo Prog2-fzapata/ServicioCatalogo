@@ -25,8 +25,10 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.annotation.Transactional;
 
+import ar.edu.um.prog2.fzapata.catalogo.LogCapture;
 import ar.edu.um.prog2.fzapata.catalogo.TestcontainersConfiguration;
 import ar.edu.um.prog2.fzapata.catalogo.usuario.infrastructure.web.handler.UserExceptionHandler;
+import ch.qos.logback.classic.Level;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 
@@ -113,6 +115,29 @@ class AccountRegistrationIntegrationTest {
         ResponseEntity<ProblemDetail> response = translate(thrown);
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(response.getBody().getProperties()).containsEntry("code", "LOGIN_ALREADY_USED");
+    }
+
+    // El mensaje de PostgreSQL trae la fila entera (login, email y hash): el log no debe copiarlo
+    @Test
+    void anUnforeseenViolationIsLoggedWithoutTheRowThatFailed() {
+        Throwable thrown = catchThrowable(() -> jdbcTemplate.update(
+                "insert into users (login, password_hash, email, activated) values (?, 'x', ?, null)",
+                "login-sentinel", "sentinel@mail.com"));
+        assertThat(thrown).hasMessageContaining("login-sentinel").hasMessageContaining("sentinel@mail.com");
+
+        try (LogCapture capture = LogCapture.of(UserExceptionHandler.class)) {
+            ResponseEntity<ProblemDetail> response = translate(thrown);
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+            assertThat(capture.events()).singleElement().satisfies(line -> {
+                assertThat(line.getLevel()).isEqualTo(Level.ERROR);
+                assertThat(line.getFormattedMessage()).isEqualTo("Violación de integridad no prevista");
+                assertThat(LogCapture.fieldsOf(line)).isEqualTo(Map.of("path", "/api/register",
+                        "exception", "PSQLException", "sqlState", "23502"));
+                assertThat(line.getThrowableProxy()).isNull();
+            });
+            assertThat(capture.everything()).doesNotContain("login-sentinel").doesNotContain("sentinel@mail.com");
+        }
     }
 
     @Test

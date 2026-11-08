@@ -1,5 +1,6 @@
 package ar.edu.um.prog2.fzapata.catalogo.usuario.infrastructure.web.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
@@ -14,6 +15,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.util.Map;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
@@ -23,12 +26,15 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
+import ar.edu.um.prog2.fzapata.catalogo.LogCapture;
 import ar.edu.um.prog2.fzapata.catalogo.shared.security.JwtConfiguration;
 import ar.edu.um.prog2.fzapata.catalogo.shared.security.ProblemDetailsSecurityHandler;
 import ar.edu.um.prog2.fzapata.catalogo.shared.security.SecurityConfiguration;
 import ar.edu.um.prog2.fzapata.catalogo.shared.web.ProblemDetailsFactory;
 import ar.edu.um.prog2.fzapata.catalogo.usuario.application.exception.InvalidCredentialsException;
 import ar.edu.um.prog2.fzapata.catalogo.usuario.application.service.UserService;
+import ar.edu.um.prog2.fzapata.catalogo.usuario.infrastructure.web.handler.UserExceptionHandler;
+import ch.qos.logback.classic.Level;
 import lombok.RequiredArgsConstructor;
 
 @WebMvcTest(AuthenticationController.class)
@@ -79,6 +85,24 @@ class AuthenticationControllerTest {
                 .andExpect(jsonPath("$.detail").value("Credenciales inválidas"))
                 .andExpect(jsonPath("$.path").value("/api/authenticate"))
                 .andExpect(content().string(not(containsString("mala"))));
+    }
+
+    // Un intento fallido deja rastro (para notar abusos) pero sin lo que el usuario escribió: ni login ni contraseña
+    @Test
+    void rejectedCredentialsLeaveAWarningWithTheRouteAndNeitherTheLoginNorThePassword() throws Exception {
+        when(userService.authenticateUser(any(), any(), anyBoolean())).thenThrow(new InvalidCredentialsException());
+
+        try (LogCapture capture = LogCapture.of(UserExceptionHandler.class)) {
+            authenticate("{\"username\":\"login-sentinel\",\"password\":\"clave-sentinel\"}")
+                    .andExpect(status().isUnauthorized());
+
+            assertThat(capture.events()).singleElement().satisfies(line -> {
+                assertThat(line.getLevel()).isEqualTo(Level.WARN);
+                assertThat(line.getFormattedMessage()).isEqualTo("Credenciales rechazadas");
+                assertThat(LogCapture.fieldsOf(line)).isEqualTo(Map.of("path", "/api/authenticate"));
+            });
+            assertThat(capture.everything()).doesNotContain("login-sentinel").doesNotContain("clave-sentinel");
+        }
     }
 
     @Test

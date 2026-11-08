@@ -1,5 +1,6 @@
 package ar.edu.um.prog2.fzapata.catalogo.catalogo.infrastructure.client;
 
+import org.springframework.core.NestedExceptionUtils;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.ResourceAccessException;
@@ -50,8 +51,10 @@ public class CatedraApiClientAdapter implements CatedraApiClient {
             // Sin conexión o timeout: no hay respuesta que interpretar
             throw new CatedraUnavailableException("No se pudo conectar con la cátedra", e);
         } catch (RestClientException e) {
-            // Llegó una respuesta, pero su cuerpo no se pudo leer como JSON del contrato
-            throw new CatedraResponseException("La respuesta de la cátedra no se pudo leer", e);
+            // Llegó una respuesta, pero su cuerpo no se pudo leer como JSON del contrato. No viaja como causa: el mensaje
+            // del parser repite el comienzo del cuerpo (por ejemplo, un JWT que la cátedra devolvió) y saldría en la traza
+            String problem = NestedExceptionUtils.getMostSpecificCause(e).getClass().getSimpleName();
+            throw new CatedraResponseException("La respuesta de la cátedra no se pudo leer (" + problem + ")", null);
         }
     }
 }

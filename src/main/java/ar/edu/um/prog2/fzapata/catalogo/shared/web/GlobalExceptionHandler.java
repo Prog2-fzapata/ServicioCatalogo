@@ -72,7 +72,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ProblemDetail> handleUnexpected(Exception ex, HttpServletRequest request) {
-        log.error("Error inesperado en {}", request.getRequestURI(), ex);
+        log.atError().setMessage("Error inesperado").addKeyValue("path", request.getRequestURI()).setCause(ex).log();
         return problemDetailsFactory.internalError(request.getRequestURI());
     }
 
