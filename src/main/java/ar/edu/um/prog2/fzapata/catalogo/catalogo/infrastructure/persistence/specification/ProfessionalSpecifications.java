@@ -1,5 +1,6 @@
 package ar.edu.um.prog2.fzapata.catalogo.catalogo.infrastructure.persistence.specification;
 
+import org.hibernate.query.criteria.HibernateCriteriaBuilder;
 import org.springframework.data.jpa.domain.Specification;
 
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.infrastructure.persistence.entity.ProfessionalEntity;
@@ -39,8 +40,11 @@ public final class ProfessionalSpecifications {
             // Normaliza el fullname, sin acentos y a minúsculas
             Expression<String> normalizedName = builder.lower(builder.function("unaccent", String.class, fullName));
             // Normaliza, escapa y agrega % al principio y al final de text, el parámetro del filtro
+            // value() liga el texto como parámetro de la consulta: nunca se interpreta como SQL. literal() lo escribía
+            // dentro de la sentencia y dependía de que Hibernate lo escapara bien
+            String pattern = "%" + escapeLike(text) + "%";
             Expression<String> normalizedText = builder.lower(builder.function("unaccent", String.class,
-                    builder.literal("%" + escapeLike(text) + "%")));
+                    ((HibernateCriteriaBuilder) builder).value(pattern)));
             // Aca se compara cada full name con el text, ambos ya normalizados.
             return builder.like(normalizedName, normalizedText, LIKE_ESCAPE);
         };
