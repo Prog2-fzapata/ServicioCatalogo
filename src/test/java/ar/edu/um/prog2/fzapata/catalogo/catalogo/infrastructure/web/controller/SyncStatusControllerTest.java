@@ -1,5 +1,6 @@
 package ar.edu.um.prog2.fzapata.catalogo.catalogo.infrastructure.web.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
@@ -10,6 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.Instant;
+import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -18,6 +20,7 @@ import org.springframework.test.context.TestConstructor;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import ar.edu.um.prog2.fzapata.catalogo.LogCapture;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.application.exception.SyncStateMissingException;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.application.service.CatalogService;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.SyncState;
@@ -29,6 +32,7 @@ import ar.edu.um.prog2.fzapata.catalogo.shared.security.ProblemDetailsSecurityHa
 import ar.edu.um.prog2.fzapata.catalogo.shared.security.SecurityConfiguration;
 import ar.edu.um.prog2.fzapata.catalogo.shared.web.GlobalExceptionHandler;
 import ar.edu.um.prog2.fzapata.catalogo.shared.web.ProblemDetailsFactory;
+import ch.qos.logback.classic.Level;
 import lombok.RequiredArgsConstructor;
 
 @WebMvcTest(SyncStatusController.class)
@@ -98,6 +102,24 @@ class SyncStatusControllerTest {
     }
 
     // Si la base fue alterada, no se cuentan detalles internos: 500 genérico y el motivo queda en el log
+    // Un error inesperado se registra entero (es el que hay que diagnosticar), con la ruta como campo
+    @Test
+    void anUnexpectedErrorLeavesAnErrorLineWithThePathAndTheException() throws Exception {
+        when(catalogService.getSyncStatus()).thenThrow(new SyncStateMissingException());
+
+        try (LogCapture capture = LogCapture.of(GlobalExceptionHandler.class)) {
+            mockMvc.perform(get("/api/sync/status").with(jwt())).andExpect(status().isInternalServerError());
+
+            assertThat(capture.events()).singleElement().satisfies(line -> {
+                assertThat(line.getLevel()).isEqualTo(Level.ERROR);
+                assertThat(line.getFormattedMessage()).isEqualTo("Error inesperado");
+                assertThat(LogCapture.fieldsOf(line)).isEqualTo(Map.of("path", "/api/sync/status"));
+                assertThat(line.getThrowableProxy().getClassName())
+                        .isEqualTo(SyncStateMissingException.class.getName());
+            });
+        }
+    }
+
     @Test
     void answersWithAnInternalErrorWithoutDetailsWhenTheRowIsMissing() throws Exception {
         when(catalogService.getSyncStatus()).thenThrow(new SyncStateMissingException());

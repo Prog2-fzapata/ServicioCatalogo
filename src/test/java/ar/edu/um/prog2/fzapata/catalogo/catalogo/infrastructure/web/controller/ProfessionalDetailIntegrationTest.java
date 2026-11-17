@@ -105,6 +105,7 @@ class ProfessionalDetailIntegrationTest {
                 .andExpect(jsonPath("$.id").value(10))
                 .andExpect(jsonPath("$.categoryId").value(1))
                 .andExpect(jsonPath("$.categoryName").value("Categoria 1"))
+                .andExpect(jsonPath("$.categoryEnabled").value(true))
                 .andExpect(jsonPath("$.firstName").value("Nombre10"))
                 .andExpect(jsonPath("$.lastName").value("Apellido10"))
                 .andExpect(jsonPath("$.enabled").value(true))
@@ -133,6 +134,7 @@ class ProfessionalDetailIntegrationTest {
         detail("12").andExpect(status().isOk())
                 .andExpect(jsonPath("$.categoryId").value(2))
                 .andExpect(jsonPath("$.categoryName").value("Categoria 2"))
+                .andExpect(jsonPath("$.categoryEnabled").value(false))
                 .andExpect(jsonPath("$.enabled").value(true));
     }
 

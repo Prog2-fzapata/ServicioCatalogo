@@ -82,6 +82,22 @@ class SearchProfessionalsUseCaseImplTest {
         assertThat(result.content().get(1).weeklySchedules()).extracting(WeeklySchedule::getId).containsExactly(101L);
     }
 
+    // La lista lo calcula igual que el detalle, aunque no lo exponga
+    @Test
+    void eachProfessionalCarriesWhetherItsOwnCategoryIsEnabled() {
+        var disabledCategory = category(2);
+        disabledCategory.setEnabled(false);
+        givenFound(3, professional(10, 1), professional(11, 2), professional(12, 3));
+        when(professionalCategoryRepository.findAllById(Set.of(1L, 2L, 3L)))
+                .thenReturn(List.of(category(1), disabledCategory));
+        when(weeklyScheduleRepository.findEnabledByProfessionalIds(Set.of(10L, 11L, 12L))).thenReturn(List.of());
+
+        PagedResult<ProfessionalSummary> result = useCase.searchProfessionals(FILTER, PAGE, SORT);
+
+        assertThat(result.content()).extracting(ProfessionalSummary::categoryEnabled).containsExactly(true, false, false);
+        assertThat(result.content().get(2).categoryName()).isNull();
+    }
+
     @Test
     void asksForTheCategoriesAndSchedulesOfThePageInASingleQueryEach() {
         givenFound(3, professional(10, 1), professional(11, 1), professional(12, 1));

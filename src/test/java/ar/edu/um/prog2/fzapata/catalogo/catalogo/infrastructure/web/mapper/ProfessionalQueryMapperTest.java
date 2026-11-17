@@ -72,7 +72,7 @@ class ProfessionalQueryMapperTest {
         assertThatThrownBy(() -> mapper.toSortOrder(PageRequest.of(0, 20, Sort.by("password"))))
                 .isInstanceOfSatisfying(InvalidSearchParameterException.class, ex -> {
                     assertThat(ex.getField()).isEqualTo("sort");
-                    assertThat(ex.getMessage()).contains("'password'").contains("id, firstName, lastName");
+                    assertThat(ex.getMessage()).contains("'password'").contains("firstName, id, lastName");
                 });
     }
 

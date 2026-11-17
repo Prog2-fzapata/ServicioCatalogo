@@ -3,6 +3,7 @@ package ar.edu.um.prog2.fzapata.catalogo.catalogo.application.usecases;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Component;
@@ -29,12 +30,14 @@ public class SearchProfessionalsUseCaseImpl implements SearchProfessionalsUseCas
     private final ProfessionalCategoryRepository professionalCategoryRepository;
     private final WeeklyScheduleRepository weeklyScheduleRepository;
 
-    private Map<Long, String> categoryNames(List<Professional> professionals) {
+    // Map: Key CategoryId y Value ProfessionalCategory
+    private Map<Long, ProfessionalCategory> categories(List<Professional> professionals) {
         Set<Long> categoryIds = professionals.stream().map(Professional::getCategoryId).collect(Collectors.toSet());
         return professionalCategoryRepository.findAllById(categoryIds).stream()
-                .collect(Collectors.toMap(ProfessionalCategory::getId, ProfessionalCategory::getName));
+                .collect(Collectors.toMap(ProfessionalCategory::getId, Function.identity()));
     }
 
+    // Key: ProfessionalId y Value: List de WeeklySchedule
     private Map<Long, List<WeeklySchedule>> schedulesByProfessional(List<Professional> professionals) {
         Set<Long> professionalIds = professionals.stream().map(Professional::getId).collect(Collectors.toSet());
         return weeklyScheduleRepository.findEnabledByProfessionalIds(professionalIds).stream()
@@ -50,10 +53,15 @@ public class SearchProfessionalsUseCaseImpl implements SearchProfessionalsUseCas
         if (found.content().isEmpty()) {
             return new PagedResult<>(List.of(), found.totalElements(), found.pageQuery());
         }
-        Map<Long, String> categoryNames = categoryNames(found.content());
+        Map<Long, ProfessionalCategory> categories = categories(found.content());
         Map<Long, List<WeeklySchedule>> schedules = schedulesByProfessional(found.content());
-        return found.map(professional -> new ProfessionalSummary(professional,
-                categoryNames.get(professional.getCategoryId()),
-                schedules.getOrDefault(professional.getId(), List.of())));
+
+        // Por cada professional arma su ProfessionalSumary con el nombre y habilitación de la categoría y una lista de sus horarios
+        return found.map(professional -> {
+            ProfessionalCategory category = categories.get(professional.getCategoryId());
+            return new ProfessionalSummary(professional, category == null ? null : category.getName(),
+                    category != null && category.isEnabled(),
+                    schedules.getOrDefault(professional.getId(), List.of()));
+        });
     }
 }

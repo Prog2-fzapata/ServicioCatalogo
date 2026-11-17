@@ -1,5 +1,6 @@
 package ar.edu.um.prog2.fzapata.catalogo.catalogo.infrastructure.persistence.specification;
 
+import org.hibernate.query.criteria.HibernateCriteriaBuilder;
 import org.springframework.data.jpa.domain.Specification;
 
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.infrastructure.persistence.entity.ProfessionalEntity;
@@ -10,6 +11,7 @@ import jakarta.persistence.criteria.Subquery;
 // Un criterio por método; la búsqueda los combina con AND solo si el pedido trae ese criterio
 public final class ProfessionalSpecifications {
 
+    // Para Java \ es un carácter especial, por lo que si quieres usar una \ debes escribir dos \\
     private static final char LIKE_ESCAPE = '\\';
 
     private ProfessionalSpecifications() {
@@ -32,11 +34,18 @@ public final class ProfessionalSpecifications {
     // «ana gom» encuentra a «Ana Gómez»
     public static Specification<ProfessionalEntity> nameContains(String text) {
         return (root, query, builder) -> {
+            // Junta nombre y apellido
             Expression<String> fullName = builder.concat(builder.concat(root.get("firstName"), " "),
                     root.get("lastName"));
+            // Normaliza el fullname, sin acentos y a minúsculas
             Expression<String> normalizedName = builder.lower(builder.function("unaccent", String.class, fullName));
+            // Normaliza, escapa y agrega % al principio y al final de text, el parámetro del filtro
+            // value() liga el texto como parámetro de la consulta: nunca se interpreta como SQL. literal() lo escribía
+            // dentro de la sentencia y dependía de que Hibernate lo escapara bien
+            String pattern = "%" + escapeLike(text) + "%";
             Expression<String> normalizedText = builder.lower(builder.function("unaccent", String.class,
-                    builder.literal("%" + escapeLike(text) + "%")));
+                    ((HibernateCriteriaBuilder) builder).value(pattern)));
+            // Aca se compara cada full name con el text, ambos ya normalizados.
             return builder.like(normalizedName, normalizedText, LIKE_ESCAPE);
         };
     }
@@ -45,8 +54,11 @@ public final class ProfessionalSpecifications {
     // y no las ocupaciones reales, que son de la cátedra. Con false, los que no tienen ninguno
     public static Specification<ProfessionalEntity> hasEnabledSchedule(boolean expected) {
         return (root, query, builder) -> {
+            // Subconsulta anidada
             Subquery<Long> schedules = query.subquery(Long.class);
+            // La subconsulta es sobre weekly_schedules
             var schedule = schedules.from(WeeklyScheduleEntity.class);
+            // Trae los Id de los horarios que coinciden con el professional id y que sean enabled.
             schedules.select(schedule.get("id")).where(
                     builder.equal(schedule.get("professionalId"), root.get("id")),
                     builder.isTrue(schedule.get("enabled")));

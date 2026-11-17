@@ -16,27 +16,34 @@ public final class PaginationHeaders {
     private PaginationHeaders() {
     }
 
+    // Reemplaza los campos para devolver los enlaces de first, last, prev y next
     // La consulta del pedido actual ya viene codificada (ana%20g%C3%B3mez): codificarla otra vez la dañaría
     private static String link(UriComponentsBuilder base, int page, int size, String rel) {
         String uri = base.cloneBuilder().replaceQueryParam("page", page).replaceQueryParam("size", size)
                 .build().toUriString();
-        return "<" + uri + ">; rel=\"" + rel + "\"";
+        return "<" + uri + ">; rel=\"" + rel + "\""; // Formato final
     }
 
     // page: la página actual, desde 0. La última es la 0 si no hay elementos
     public static HttpHeaders create(UriComponentsBuilder currentRequest, int page, int size, long totalElements) {
+        // Total pages se divide como double y se redondea para arriba
         int totalPages = (int) Math.ceil((double) totalElements / size);
+
         int lastPage = Math.max(totalPages - 1, 0);
+
         List<String> links = new ArrayList<>();
         if (page + 1 < totalPages) {
             links.add(link(currentRequest, page + 1, size, "next"));
         }
+
         if (page > 0) {
             links.add(link(currentRequest, page - 1, size, "prev"));
         }
+
         links.add(link(currentRequest, lastPage, size, "last"));
         links.add(link(currentRequest, 0, size, "first"));
 
+        // Se retornan dos cabeceras una con el total count y otra con los links
         HttpHeaders headers = new HttpHeaders();
         headers.add(TOTAL_COUNT, Long.toString(totalElements));
         headers.add(HttpHeaders.LINK, String.join(",", links));

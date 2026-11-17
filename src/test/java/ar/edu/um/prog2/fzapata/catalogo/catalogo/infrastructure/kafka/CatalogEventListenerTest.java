@@ -1,5 +1,6 @@
 package ar.edu.um.prog2.fzapata.catalogo.catalogo.infrastructure.kafka;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
@@ -17,6 +18,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.kafka.support.Acknowledgment;
 
+import ar.edu.um.prog2.fzapata.catalogo.LogCapture;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.application.exception.CatedraUnavailableException;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.application.service.CatalogService;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.CatalogUpdatedEvent;
@@ -53,6 +55,20 @@ class CatalogEventListenerTest {
         InOrder order = inOrder(catalogService, acknowledgment);
         order.verify(catalogService).synchronizeForEvent(EVENT);
         order.verify(acknowledgment).acknowledge();
+    }
+
+    // La traza de sincronización lleva el id y la versión del evento, para seguirlo desde el aviso de la cátedra
+    @Test
+    void logsTheResultWithTheIdAndTheVersionOfTheEvent() {
+        when(catalogService.synchronizeForEvent(EVENT)).thenReturn(Optional.of(new SyncResult(3, 7, SyncType.FULL)));
+
+        try (LogCapture capture = LogCapture.of(SyncOutcomeLogger.class)) {
+            listener.onCatalogUpdated(PAYLOAD, acknowledgment);
+
+            assertThat(capture.events()).singleElement().satisfies(line -> assertThat(LogCapture.fieldsOf(line))
+                    .containsEntry("eventId", "evento-7").containsEntry("eventVersion", 7L)
+                    .containsEntry("toVersion", 7L));
+        }
     }
 
     @Test

@@ -138,23 +138,13 @@ class SynchronizeCatalogUseCaseImplTest {
     }
 
     @Test
-    void fetchesTheSnapshotAndAppliesIt() {
-        CatalogSnapshot snapshot = snapshotOfVersion(7);
-        when(catedraApiClient.fetchSnapshot()).thenReturn(snapshot);
-        when(applyCatalogSnapshotUseCase.applySnapshot(snapshot)).thenReturn(new SyncResult(3, 7, SyncType.FULL));
-
-        SyncResult result = useCase.synchronizeFull();
-
-        assertThat(result).isEqualTo(new SyncResult(3, 7, SyncType.FULL));
-        verify(recordSyncFailureUseCase, never()).recordFailure(any(), any());
-    }
-
-    @Test
     void recordsTheFailureAndRethrowsTheSameExceptionWhenTheCatedraFails() {
         CatedraUnavailableException failure = unavailable();
+        givenLocalVersion(0);
+        givenRedisVersions(7, 0);
         when(catedraApiClient.fetchSnapshot()).thenThrow(failure);
 
-        assertThatThrownBy(() -> useCase.synchronizeFull()).isSameAs(failure);
+        assertThatThrownBy(() -> useCase.synchronize()).isSameAs(failure);
 
         verify(recordSyncFailureUseCase).recordFailure(SyncType.FULL, failure);
         verify(applyCatalogSnapshotUseCase, never()).applySnapshot(any());
@@ -164,10 +154,12 @@ class SynchronizeCatalogUseCaseImplTest {
     void recordsTheFailureAndRethrowsTheSameExceptionWhenApplyingFails() {
         CatalogSnapshot snapshot = snapshotOfVersion(7);
         IllegalStateException failure = new IllegalStateException("violación de clave foránea");
+        givenLocalVersion(0);
+        givenRedisVersions(7, 0);
         when(catedraApiClient.fetchSnapshot()).thenReturn(snapshot);
         when(applyCatalogSnapshotUseCase.applySnapshot(snapshot)).thenThrow(failure);
 
-        assertThatThrownBy(() -> useCase.synchronizeFull()).isSameAs(failure);
+        assertThatThrownBy(() -> useCase.synchronize()).isSameAs(failure);
 
         verify(recordSyncFailureUseCase).recordFailure(SyncType.FULL, failure);
     }
@@ -176,10 +168,12 @@ class SynchronizeCatalogUseCaseImplTest {
     void keepsTheOriginalErrorAndAttachesTheRecordingFailureWhenRecordingFails() {
         CatedraUnavailableException original = unavailable();
         IllegalStateException recordingFailure = new IllegalStateException("base caída");
+        givenLocalVersion(0);
+        givenRedisVersions(7, 0);
         when(catedraApiClient.fetchSnapshot()).thenThrow(original);
         doThrow(recordingFailure).when(recordSyncFailureUseCase).recordFailure(SyncType.FULL, original);
 
-        assertThatThrownBy(() -> useCase.synchronizeFull())
+        assertThatThrownBy(() -> useCase.synchronize())
                 .isSameAs(original)
                 .hasSuppressedException(recordingFailure);
     }
@@ -445,6 +439,7 @@ class SynchronizeCatalogUseCaseImplTest {
                 any(CatalogSnapshot.class));
         verify(processedEventRepository, never()).existsById(any());
         verify(clearSyncErrorUseCase, never()).clearError();
+        verify(recordSyncFailureUseCase, never()).recordFailure(any(), any());
     }
 
     @Test
@@ -556,11 +551,13 @@ class SynchronizeCatalogUseCaseImplTest {
             return snapshotOfVersion(number);
         });
         when(applyCatalogSnapshotUseCase.applySnapshot(any())).thenReturn(new SyncResult(0, 1, SyncType.FULL));
+        givenLocalVersion(0);
+        givenRedisVersions(7, 0);
         ExecutorService pool = Executors.newFixedThreadPool(2);
         try {
-            Future<SyncResult> first = pool.submit(useCase::synchronizeFull);
+            Future<Optional<SyncResult>> first = pool.submit(useCase::synchronize);
             assertThat(firstIsFetching.await(5, TimeUnit.SECONDS)).isTrue();
-            Future<SyncResult> second = pool.submit(useCase::synchronizeFull);
+            Future<Optional<SyncResult>> second = pool.submit(useCase::synchronize);
 
             // Mientras la primera sigue pidiendo el snapshot, la segunda no puede terminar ni pedir el suyo
             assertThatThrownBy(() -> second.get(300, TimeUnit.MILLISECONDS)).isInstanceOf(TimeoutException.class);

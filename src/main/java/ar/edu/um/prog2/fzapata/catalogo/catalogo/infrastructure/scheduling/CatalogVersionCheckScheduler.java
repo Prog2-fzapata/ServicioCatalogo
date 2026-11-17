@@ -38,9 +38,10 @@ public class CatalogVersionCheckScheduler implements SchedulingConfigurer {
     // y se reintenta en la próxima. Si el snapshot falla, el error ya quedó en sync_state
     void check() {
         try {
-            syncOutcomeLogger.log("Verificación de versión", catalogService.synchronize());
+            syncOutcomeLogger.logCheck(catalogService.synchronize());
         } catch (RuntimeException failure) {
-            log.error("La verificación de versión falló; se reintenta en la próxima vuelta", failure);
+            log.atError().setMessage("La verificación de versión falló; se reintenta en la próxima vuelta")
+                    .setCause(failure).log();
         }
     }
 }

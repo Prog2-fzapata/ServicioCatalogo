@@ -13,6 +13,8 @@ import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.CatalogIncrement;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.CatalogSnapshot;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.CatalogUpdatedEvent;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.SyncMetadata;
+import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.SyncPlan;
+import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.SyncPlanner;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.SyncResult;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.SyncState;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.SyncType;
@@ -86,8 +88,10 @@ public class SynchronizeCatalogUseCaseImpl implements SynchronizeCatalogUseCase 
     }
 
     private CatalogIncrement readIncrement(long version) {
+        // Pedir ids que cambiaron en la version
         CatalogChanges changes = catedraSyncSource.readChanges(version).orElseThrow(
                 () -> new IllegalStateException("La cátedra ya no conserva los cambios de la versión " + version));
+        // CatalogINcrement con las entidades completas
         return CatalogIncrement.builder()
                 .version(version)
                 .categories(catedraSyncSource.readCategories(changes.categoryIds()))
@@ -135,6 +139,12 @@ public class SynchronizeCatalogUseCaseImpl implements SynchronizeCatalogUseCase 
         }
     }
 
+    // La cátedra respondió y la copia está al día: si quedó un error de una vuelta anterior, ya no vale
+    private Optional<SyncResult> upToDate() {
+        clearSyncErrorUseCase.clearError();
+        return Optional.empty();
+    }
+
     // Un evento ya procesado, o con justo la versión que tiene la copia, no necesita ni leer Redis. Una versión
     // local mayor no se ignora: puede ser un retroceso de la cátedra
     private boolean isAlreadyHandled(Optional<CatalogUpdatedEvent> event, long localVersion) {
@@ -156,28 +166,11 @@ public class SynchronizeCatalogUseCaseImpl implements SynchronizeCatalogUseCase 
         } catch (RuntimeException failure) {
             return applySnapshotFor(event, "no se pudo leer Redis: " + describe(failure), failure);
         }
-        if (localVersion == metadata.currentVersion()) {
-            // La cátedra respondió y la copia está al día: si quedó un error de una vuelta anterior, ya no vale
-            clearSyncErrorUseCase.clearError();
-            return Optional.empty();
-        }
-        if (localVersion == 0) {
-            return applySnapshotFor(event, "la base está vacía", null);
-        }
-        if (localVersion > metadata.currentVersion()) {
-            return applySnapshotFor(event, "la cátedra retrocedió de la versión " + localVersion + " a la "
-                    + metadata.currentVersion(), null);
-        }
-        if (localVersion < metadata.oldestAvailableVersion()) {
-            return applySnapshotFor(event, "la versión local " + localVersion + " es anterior a la más antigua "
-                    + "disponible (" + metadata.oldestAvailableVersion() + ")", null);
-        }
-        return applyIncrementsFor(event, localVersion, metadata.currentVersion());
-    }
-
-    @Override
-    public SyncResult synchronizeFull() {
-        return withLock(() -> fetchAndApply(applyCatalogSnapshotUseCase::applySnapshot));
+        return switch (SyncPlanner.plan(localVersion, metadata)) {
+            case SyncPlan.UpToDate empty -> upToDate();
+            case SyncPlan.Snapshot snapshot -> applySnapshotFor(event, snapshot.reason(), null);
+            case SyncPlan.Incremental incremental -> applyIncrementsFor(event, incremental.from(), incremental.to());
+        };
     }
 
     @Override

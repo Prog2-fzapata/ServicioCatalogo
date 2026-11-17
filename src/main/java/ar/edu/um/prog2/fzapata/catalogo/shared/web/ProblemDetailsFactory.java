@@ -28,12 +28,15 @@ public class ProblemDetailsFactory {
     // Respuestas que arma Spring por su cuenta (404, 405, 415...): se les agrega code y path
     // y se traduce el detalle al español
     public void complete(ProblemDetail problem, HttpStatus status, String path) {
+
         Map<String, Object> properties = problem.getProperties();
+        // Agrega code y traduce el detalle
         if (properties == null || !properties.containsKey("code")) {
             Standard standard = standardFor(status);
             problem.setDetail(standard.detail());
             problem.setProperty("code", standard.code());
         }
+        // Agrega path
         if (properties == null || !properties.containsKey("path")) {
             problem.setProperty("path", path);
         }

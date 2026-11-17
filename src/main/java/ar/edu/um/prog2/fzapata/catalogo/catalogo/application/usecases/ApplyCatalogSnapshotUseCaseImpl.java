@@ -9,7 +9,6 @@ import ar.edu.um.prog2.fzapata.catalogo.catalogo.application.exception.SyncState
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.CatalogSnapshot;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.SyncResult;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.SyncState;
-import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.SyncStatus;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.SyncType;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.ports.in.ApplyCatalogSnapshotUseCase;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.ports.out.CatalogRepository;
@@ -28,19 +27,20 @@ public class ApplyCatalogSnapshotUseCaseImpl implements ApplyCatalogSnapshotUseC
     @Override
     @Transactional
     public SyncResult applySnapshot(CatalogSnapshot snapshot) {
+        // Bloquea la fila
         SyncState state = syncStateRepository.findForUpdate()
                 .orElseThrow(SyncStateMissingException::new);
+        // Guarda el estado inicial
         long previousVersion = state.getLocalVersion();
 
         // Se aplica aunque la versión sea menor: la cátedra es la fuente de verdad (el aviso lo da quien llama)
         catalogRepository.replaceAll(snapshot);
 
-        state.setLocalVersion(snapshot.getVersion());
-        state.setLastSyncAt(clock.instant());
-        state.setLastSyncType(SyncType.FULL);
-        state.setLastStatus(SyncStatus.OK);
-        state.setLastError(null);
+        // Actualiza estado en memoria
+        state.recordSuccess(snapshot.getVersion(), SyncType.FULL, clock.instant());
+
         syncStateRepository.save(state);
+
         return new SyncResult(previousVersion, snapshot.getVersion(), SyncType.FULL);
     }
 }

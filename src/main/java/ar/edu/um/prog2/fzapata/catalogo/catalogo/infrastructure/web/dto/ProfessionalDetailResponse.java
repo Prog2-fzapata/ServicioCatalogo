@@ -18,6 +18,8 @@ public class ProfessionalDetailResponse {
     private Long id;
     private Long categoryId;
     private String categoryName;
+    // Si la categoría está apagada, el profesional se informa igual: lo decide quien consume
+    private boolean categoryEnabled;
     private String firstName;
     private String lastName;
     private boolean enabled;

@@ -147,6 +147,14 @@ class CategorySearchIntegrationTest {
     }
 
     @Test
+    void aPageBeyondTheLastIsEmptyButKeepsTheTotalAndPointsToTheRealLastPage() throws Exception {
+        search("?size=2&page=9").andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0))
+                .andExpect(header().string("X-Total-Count", "5"))
+                .andExpect(header().string("Link", containsString("page=2&size=2>; rel=\"last\"")));
+    }
+
+    @Test
     void doesNotSupportWriting() throws Exception {
         mockMvc.perform(post("/api/professional-categories").header("Authorization", "Bearer " + token))
                 .andExpect(status().isMethodNotAllowed());

@@ -31,34 +31,46 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     private final ProblemDetailsFactory problemDetailsFactory;
 
+    // No pasa las @Valid
     @Override
     protected ResponseEntity<Object> handleMethodArgumentNotValid(MethodArgumentNotValidException ex,
             HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+        // FieldViolation tiene objectName, field y defaultMessage
         List<FieldViolation> violations = ex.getBindingResult().getFieldErrors().stream()
                 .map(error -> new FieldViolation(error.getObjectName(), error.getField(), error.getDefaultMessage()))
                 .toList();
+        // Arma el problem detail (400)
         ProblemDetail problem = problemDetailsFactory.of(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR",
                 "Los datos enviados no son válidos", path(request));
+        // Agrega la propiedad fieldErrors
         problem.setProperty("fieldErrors", violations);
+
         return handleExceptionInternal(ex, problem, headers, status, request);
     }
 
+    // JSON roto
     @Override
     protected ResponseEntity<Object> handleHttpMessageNotReadable(HttpMessageNotReadableException ex,
             HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+
         ProblemDetail problem = problemDetailsFactory.of(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR",
                 "El cuerpo de la solicitud no es un JSON válido", path(request));
+
         return handleExceptionInternal(ex, problem, headers, status, request);
     }
 
+    // Spring arma una respuesta a su manera, este método ajusta el formato unificado.
     // Pasan por acá todas las respuestas de la clase base, también las que no sobrescribimos (404, 405, 415...)
     @Override
     protected ResponseEntity<Object> handleExceptionInternal(Exception ex, Object body, HttpHeaders headers,
             HttpStatusCode statusCode, WebRequest request) {
+
         ResponseEntity<Object> response = super.handleExceptionInternal(ex, body, headers, statusCode, request);
-        HttpStatus status = HttpStatus.resolve(statusCode.value());
+        HttpStatus status = HttpStatus.resolve(statusCode.value()); // Convierte el número en valor del enum
+        // Si ya tiene code y path, se retorna porque el error ya lo armamos nosotros.
+        // Si Spring armó el error, llama directo a este método que no pasó por la factory
         if (response != null && status != null && response.getBody() instanceof ProblemDetail problem) {
-            problemDetailsFactory.complete(problem, status, path(request));
+            problemDetailsFactory.complete(problem, status, path(request)); // Agrega code, path y traduce el detalle
         }
         return response;
     }
@@ -72,7 +84,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ProblemDetail> handleUnexpected(Exception ex, HttpServletRequest request) {
-        log.error("Error inesperado en {}", request.getRequestURI(), ex);
+        log.atError().setMessage("Error inesperado").addKeyValue("path", request.getRequestURI()).setCause(ex).log();
         return problemDetailsFactory.internalError(request.getRequestURI());
     }
 

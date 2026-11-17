@@ -9,7 +9,6 @@ import ar.edu.um.prog2.fzapata.catalogo.catalogo.application.exception.SyncState
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.CatalogIncrement;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.SyncResult;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.SyncState;
-import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.SyncStatus;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.SyncType;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.ports.in.ApplyCatalogIncrementUseCase;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.ports.out.CatalogRepository;
@@ -26,24 +25,25 @@ public class ApplyCatalogIncrementUseCaseImpl implements ApplyCatalogIncrementUs
 
     // Datos y versión en una sola transacción: si algo falla no cambia nada
     @Override
-    @Transactional
+    @Transactional // Se hace commit al terminar o si no, Rollback
     public SyncResult applyIncrement(CatalogIncrement increment) {
+        // Tomar la fila y bloquearla
         SyncState state = syncStateRepository.findForUpdate()
                 .orElseThrow(SyncStateMissingException::new);
+        // Guardar la versión de partida
         long previousVersion = state.getLocalVersion();
         // Con la fila bloqueada, esta comprobación vale aunque otra sincronización haya avanzado la versión
         if (increment.getVersion() != previousVersion + 1) {
             throw new IllegalStateException("Se esperaba la versión " + (previousVersion + 1)
                     + " y llegó la " + increment.getVersion());
         }
-
+        // Crea o actualiza profesionales, categorías y horarios
         catalogRepository.upsert(increment);
 
-        state.setLocalVersion(increment.getVersion());
-        state.setLastSyncAt(clock.instant());
-        state.setLastSyncType(SyncType.INCREMENTAL);
-        state.setLastStatus(SyncStatus.OK);
-        state.setLastError(null);
+        // Actualizar el estado en memoria
+        state.recordSuccess(increment.getVersion(), SyncType.INCREMENTAL, clock.instant());
+
+        // Guardar el estado
         syncStateRepository.save(state);
         return new SyncResult(previousVersion, increment.getVersion(), SyncType.INCREMENTAL);
     }
