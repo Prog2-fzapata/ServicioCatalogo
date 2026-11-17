@@ -3,6 +3,7 @@ package ar.edu.um.prog2.fzapata.catalogo.catalogo.infrastructure.web.mapper;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeSet;
 
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -20,7 +21,7 @@ import ar.edu.um.prog2.fzapata.catalogo.catalogo.infrastructure.web.exception.In
 public class ProfessionalQueryMapper {
 
     public static final int MAX_NAME_LENGTH = 100;
-    public static final String SEARCH_OBJECT = "professionalSearch";
+    private static final String SEARCH_OBJECT = "professionalSearch";
 
     // Los únicos nombres de campo que acepta sort, como aparecen en la respuesta
     private static final Map<String, Field> SORTABLE = Map.of(
@@ -41,6 +42,11 @@ public class ProfessionalQueryMapper {
         return new PageQuery(pageable.getPageNumber(), pageable.getPageSize());
     }
 
+    // Ordenados porque Map.of no garantiza el orden de sus claves
+    private static String allowedFields() {
+        return String.join(", ", new TreeSet<>(SORTABLE.keySet()));
+    }
+
     // Sin sort en el pedido, apellido y nombre
     public List<ProfessionalSortOrder> toSortOrder(Pageable pageable) {
         if (pageable.getSort().isUnsorted()) {
@@ -51,8 +57,8 @@ public class ProfessionalQueryMapper {
         for (Sort.Order item : pageable.getSort()) {
             Field field = SORTABLE.get(item.getProperty());
             if (field == null) {
-                throw new InvalidSearchParameterException(SEARCH_OBJECT, "sort", "No se puede ordenar por '" + item.getProperty()
-                        + "'; los campos permitidos son: id, firstName, lastName");
+                throw new InvalidSearchParameterException(SEARCH_OBJECT, "sort", "No se puede ordenar por '"
+                        + item.getProperty() + "'; los campos permitidos son: " + allowedFields());
             }
             order.add(new ProfessionalSortOrder(field, item.isAscending() ? Direction.ASC : Direction.DESC));
         }
