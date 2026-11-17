@@ -9,7 +9,7 @@ El servicio guarda una copia del catálogo de la cátedra (categorías, profesio
 ## Decisión
 
 - Tablas `professional_categories`, `professionals`, `weekly_schedules`, `sync_state` y `processed_events`. Los nombres van en plural, como pide la convención de la cátedra para las entities y como `users`; `sync_state` queda en singular porque es una sola fila.
-- Los ids de categoría, profesional y horario son los de la cátedra y no se generan, para poder aplicar cambios por id. Las bajas son lógicas (`enabled = false`): no se borran filas.
+- Los ids de categoría, profesional y horario son los de la cátedra y no se generan, para poder aplicar cambios por id. Las bajas son lógicas (`enabled = false`): la cátedra no borra y la incremental tampoco; solo la sincronización completa elimina las filas que la cátedra ya no envía ([decisión 020](020-sincronizacion-completa-por-upsert.md)).
 - Claves foráneas normales (profesional a categoría, horario a profesional) con un índice en cada una, porque PostgreSQL no los crea solo.
 - `day_of_week` es `VARCHAR` con `CHECK` de los siete valores. Los horarios exigen `end_time > start_time` y `slot_duration_minutes > 0`.
 - `sync_state` tiene una sola fila (`CHECK (id = 1)`) creada por la propia migración, con `local_version = 0` (significa «base vacía, hace falta un snapshot») y sin datos de última sincronización. `last_sync_type` admite `FULL` o `INCREMENTAL` y `last_status`, `OK` o `ERROR`.
