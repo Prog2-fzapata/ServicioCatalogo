@@ -30,6 +30,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.TestConstructor;
@@ -53,11 +54,15 @@ import tools.jackson.databind.json.JsonMapper;
 // (PostgreSQL y Redis reales, la cátedra como servidor HTTP local), captura TODO lo que se escribe (mensaje, campos,
 // contexto y traza completa de cada excepción, con sus causas) y comprueba que ningún valor sentinela aparece. Antes
 // comprueba que el valor sí viajó por el flujo: sin eso el test pasaría igual si el flujo no lo hubiera usado.
-// La verificación de versión corre sola cada 200 ms contra Redis (que rechaza la clave) y la cátedra simulada
+// La verificación de versión corre sola cada 200 ms contra Redis (que rechaza la clave) y la cátedra simulada.
+// Se captura todo el log de la JVM, así que ningún otro contexto con su verificación viva puede quedar corriendo:
+// el de CatalogVersionCheckSchedulerIntegrationTest se cierra al terminar su clase, y este también, para no
+// escribir sus errores en las clases siguientes
 @SpringBootTest(properties = {
         "catedra.sync.check-enabled=true",
         "catedra.sync.check-interval=200ms",
         "catedra.sync.initial-delay=0s"})
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @AutoConfigureMockMvc
 @Testcontainers
 @Import(SecretsNotInLogsIntegrationTest.DatabaseWithPassword.class)

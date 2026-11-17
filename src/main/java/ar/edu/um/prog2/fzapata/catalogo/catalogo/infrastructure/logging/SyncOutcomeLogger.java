@@ -14,18 +14,21 @@ import lombok.extern.slf4j.Slf4j;
 @Component
 public class SyncOutcomeLogger {
 
-    // Qué disparó la sincronización. Un evento lleva sus ids como campos; la verificación periódica no tiene
-    private record Origin(String name, Level whenNothingToApply, String eventId, Long eventVersion) {
+    // Qué disparó la sincronización. Un evento lleva sus ids como campos; la verificación periódica no tiene.
+    // Cada origen explica a su modo por qué no había nada que aplicar
+    private record Origin(String name, Level whenNothingToApply, String whyNothing, String eventId,
+            Long eventVersion) {
     }
 
     // Un evento que no cambia nada (duplicado o ya al día) es una traza útil de la deduplicación
     public void logEvent(String eventId, long eventVersion, Optional<SyncResult> result) {
-        log(new Origin("Evento de catálogo", Level.INFO, eventId, eventVersion), result);
+        log(new Origin("Evento de catálogo", Level.INFO,
+                "El evento ya fue procesado o la copia ya está al día.", eventId, eventVersion), result);
     }
 
     // La verificación corre cada minuto: sin cambios va a DEBUG para no llenar el log de líneas iguales
     public void logCheck(Optional<SyncResult> result) {
-        log(new Origin("Verificación de versión", Level.DEBUG, null, null), result);
+        log(new Origin("Verificación de versión", Level.DEBUG, "La copia ya está al día.", null, null), result);
     }
 
     private LoggingEventBuilder line(Level level, Origin origin, String message) {
@@ -38,8 +41,7 @@ public class SyncOutcomeLogger {
 
     private void log(Origin origin, Optional<SyncResult> result) {
         if (result.isEmpty()) {
-            line(origin.whenNothingToApply(), origin, "nada que aplicar (ya procesado o la copia ya está al día)")
-                    .log();
+            line(origin.whenNothingToApply(), origin, "nada que aplicar. " + origin.whyNothing()).log();
             return;
         }
         SyncResult applied = result.get();

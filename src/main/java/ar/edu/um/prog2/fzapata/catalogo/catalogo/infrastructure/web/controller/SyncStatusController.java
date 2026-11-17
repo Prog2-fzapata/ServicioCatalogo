@@ -13,7 +13,7 @@ import lombok.RequiredArgsConstructor;
 
 // Requiere un JWT válido, como todo lo que no es registro ni login: lo exige SecurityConfiguration
 @RestController
-@RequestMapping("/api/sync")
+@RequestMapping("/sync")
 @RequiredArgsConstructor
 public class SyncStatusController {
 

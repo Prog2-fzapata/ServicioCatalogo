@@ -190,7 +190,7 @@ class ProfessionalControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
                 .andExpect(jsonPath("$.fieldErrors[0].field").value("sort"))
-                .andExpect(jsonPath("$.fieldErrors[0].message").value(containsString("id, firstName, lastName")));
+                .andExpect(jsonPath("$.fieldErrors[0].message").value(containsString("firstName, id, lastName")));
 
         verifyNoInteractions(catalogService);
     }

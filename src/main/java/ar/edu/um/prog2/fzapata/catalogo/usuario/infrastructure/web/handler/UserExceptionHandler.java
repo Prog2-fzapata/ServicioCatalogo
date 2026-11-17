@@ -66,6 +66,7 @@ public class UserExceptionHandler {
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ProblemDetail> handleDataIntegrityViolation(DataIntegrityViolationException ex,
             HttpServletRequest request) {
+        // Reconocer que restricción falló
         String cause = String.valueOf(ex.getMostSpecificCause().getMessage());
         if (cause.contains(LOGIN_CONSTRAINT)) {
             return handleLoginAlreadyUsed(new LoginAlreadyUsedException(), request);
@@ -75,6 +76,7 @@ public class UserExceptionHandler {
         }
         // El mensaje de PostgreSQL repite el valor que chocó (el login o el email): se registra solo la clase y el SQLSTATE
         Throwable root = ex.getMostSpecificCause();
+        // En cualquier otro caso, imprevisto. Registra solo clase y sql state para no mostrar datos sensibles
         LoggingEventBuilder line = log.atError().setMessage("Violación de integridad no prevista")
                 .addKeyValue("path", request.getRequestURI()).addKeyValue("exception", root.getClass().getSimpleName());
         if (root instanceof SQLException sqlException) {

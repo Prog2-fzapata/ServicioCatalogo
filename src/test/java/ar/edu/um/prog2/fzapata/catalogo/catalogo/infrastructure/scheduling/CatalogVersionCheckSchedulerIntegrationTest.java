@@ -21,6 +21,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.TestConstructor;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
@@ -34,11 +35,14 @@ import lombok.RequiredArgsConstructor;
 
 // La verificación corre sola, con la configuración real de Spring y PostgreSQL real; la cátedra es un doble que se
 // prepara después de arrancar. Mientras no está preparado, las vueltas fallan y se registran: lo mismo que pasaría
-// con la cátedra caída, y por eso cada test también prueba que el servicio sigue verificando
+// con la cátedra caída, y por eso cada test también prueba que el servicio sigue verificando.
+// El contexto se cierra al terminar la clase: en caché, su verificación seguiría fallando cada 200 ms (el doble
+// devuelve null) y escribiría esos errores en el log de las clases que corren después
 @SpringBootTest(properties = {
         "catedra.sync.check-enabled=true",
         "catedra.sync.check-interval=200ms",
         "catedra.sync.initial-delay=0s"})
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @Import(TestcontainersConfiguration.class)
 @TestConstructor(autowireMode = TestConstructor.AutowireMode.ALL)
 @RequiredArgsConstructor

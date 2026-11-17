@@ -24,7 +24,7 @@ import lombok.RequiredArgsConstructor;
 
 // Requiere un JWT válido, como todo lo que no es registro ni login. Se resuelve siempre sobre la copia local
 @RestController
-@RequestMapping("/api/professional-categories")
+@RequestMapping("/professional-categories")
 @RequiredArgsConstructor
 public class ProfessionalCategoryController {
 

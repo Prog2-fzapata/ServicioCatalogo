@@ -8,8 +8,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -30,11 +32,13 @@ import org.springframework.transaction.support.TransactionTemplate;
 import ar.edu.um.prog2.fzapata.catalogo.TestcontainersConfiguration;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.application.exception.CatedraUnavailableException;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.CatalogSnapshot;
+import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.SyncMetadata;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.SyncResult;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.SyncType;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.ports.in.ApplyCatalogSnapshotUseCase;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.ports.in.SynchronizeCatalogUseCase;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.ports.out.CatedraApiClient;
+import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.ports.out.CatedraSyncSource;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.ports.out.SyncStateRepository;
 import lombok.RequiredArgsConstructor;
 
@@ -54,6 +58,9 @@ class SynchronizeCatalogIntegrationTest {
     @MockitoBean
     private CatedraApiClient catedraApiClient;
 
+    @MockitoBean
+    private CatedraSyncSource catedraSyncSource;
+
     @BeforeEach
     void cleanDatabase() {
         jdbc.sql("DELETE FROM weekly_schedules").update();
@@ -62,6 +69,12 @@ class SynchronizeCatalogIntegrationTest {
         jdbc.sql("""
                 UPDATE sync_state SET local_version = 0, last_sync_at = NULL, last_sync_type = NULL,
                                       last_status = NULL, last_error = NULL""").update();
+    }
+
+    // Lo que la cátedra publica en Redis: la versión actual y la más antigua con detalle de cambios. Con la copia
+    // vacía, o con una más antigua que esa, synchronize() va al snapshot, como en producción
+    private SyncMetadata published(long current, long oldest) {
+        return new SyncMetadata(current, oldest, Instant.parse("2026-10-26T12:00:00Z"));
     }
 
     private CatalogSnapshot validSnapshot(long version) {
@@ -89,11 +102,12 @@ class SynchronizeCatalogIntegrationTest {
 
     @Test
     void storesTheCatalogAndTheVersionTogether() {
+        when(catedraSyncSource.readMetadata()).thenReturn(published(7, 0));
         when(catedraApiClient.fetchSnapshot()).thenReturn(validSnapshot(7));
 
-        SyncResult result = synchronizeCatalogUseCase.synchronizeFull();
+        Optional<SyncResult> result = synchronizeCatalogUseCase.synchronize();
 
-        assertThat(result).isEqualTo(new SyncResult(0, 7, SyncType.FULL));
+        assertThat(result).contains(new SyncResult(0, 7, SyncType.FULL, "la base está vacía"));
         assertThat(count("professional_categories")).isEqualTo(1);
         assertThat(count("professionals")).isEqualTo(1);
         assertThat(count("weekly_schedules")).isEqualTo(1);
@@ -104,10 +118,11 @@ class SynchronizeCatalogIntegrationTest {
 
     @Test
     void leavesDataAndVersionUntouchedWhenTheSnapshotFailsHalfway() {
+        when(catedraSyncSource.readMetadata()).thenReturn(published(7, 0), published(8, 8));
         when(catedraApiClient.fetchSnapshot()).thenReturn(validSnapshot(7), snapshotThatFailsHalfway(8));
-        synchronizeCatalogUseCase.synchronizeFull();
+        synchronizeCatalogUseCase.synchronize();
 
-        assertThatThrownBy(() -> synchronizeCatalogUseCase.synchronizeFull()).isInstanceOf(RuntimeException.class);
+        assertThatThrownBy(() -> synchronizeCatalogUseCase.synchronize()).isInstanceOf(RuntimeException.class);
 
         // Ni la categoría 2 nueva ni el profesional 11 quedaron; tampoco cambió la versión
         assertThat(count("professional_categories")).isEqualTo(1);
@@ -117,10 +132,11 @@ class SynchronizeCatalogIntegrationTest {
 
     @Test
     void recordsTheErrorInItsOwnTransactionWhenTheSnapshotFailsHalfway() {
+        when(catedraSyncSource.readMetadata()).thenReturn(published(7, 0), published(8, 8));
         when(catedraApiClient.fetchSnapshot()).thenReturn(validSnapshot(7), snapshotThatFailsHalfway(8));
-        synchronizeCatalogUseCase.synchronizeFull();
+        synchronizeCatalogUseCase.synchronize();
 
-        assertThatThrownBy(() -> synchronizeCatalogUseCase.synchronizeFull()).isInstanceOf(RuntimeException.class);
+        assertThatThrownBy(() -> synchronizeCatalogUseCase.synchronize()).isInstanceOf(RuntimeException.class);
 
         assertThat(syncState()).containsEntry("last_status", "ERROR").containsEntry("last_sync_type", "FULL");
         assertThat((String) syncState().get("last_error")).isNotBlank();
@@ -129,10 +145,11 @@ class SynchronizeCatalogIntegrationTest {
     @Test
     void recordsTheErrorAndKeepsTheDataWhenTheCatedraDoesNotAnswer() {
         CatedraUnavailableException failure = new CatedraUnavailableException("sin conexión", null);
+        when(catedraSyncSource.readMetadata()).thenReturn(published(7, 0), published(8, 8));
         when(catedraApiClient.fetchSnapshot()).thenReturn(validSnapshot(7)).thenThrow(failure);
-        synchronizeCatalogUseCase.synchronizeFull();
+        synchronizeCatalogUseCase.synchronize();
 
-        assertThatThrownBy(() -> synchronizeCatalogUseCase.synchronizeFull()).isSameAs(failure);
+        assertThatThrownBy(() -> synchronizeCatalogUseCase.synchronize()).isSameAs(failure);
 
         assertThat(count("professional_categories")).isEqualTo(1);
         assertThat(syncState()).containsEntry("local_version", 7L).containsEntry("last_status", "ERROR")
@@ -141,25 +158,28 @@ class SynchronizeCatalogIntegrationTest {
 
     @Test
     void aSuccessfulSyncClearsTheErrorOfTheFailedOne() {
+        when(catedraSyncSource.readMetadata()).thenReturn(published(7, 0));
         when(catedraApiClient.fetchSnapshot())
                 .thenThrow(new CatedraUnavailableException("sin conexión", null))
                 .thenReturn(validSnapshot(7));
-        assertThatThrownBy(() -> synchronizeCatalogUseCase.synchronizeFull())
+        assertThatThrownBy(() -> synchronizeCatalogUseCase.synchronize())
                 .isInstanceOf(CatedraUnavailableException.class);
 
-        synchronizeCatalogUseCase.synchronizeFull();
+        synchronizeCatalogUseCase.synchronize();
 
         assertThat(syncState()).containsEntry("last_status", "OK").containsEntry("last_error", null);
     }
 
     @Test
     void appliesTheSnapshotAndReportsItWhenItsVersionIsLowerThanTheLocalOne() {
+        when(catedraSyncSource.readMetadata()).thenReturn(published(9, 0), published(4, 0));
         when(catedraApiClient.fetchSnapshot()).thenReturn(validSnapshot(9), validSnapshot(4));
-        synchronizeCatalogUseCase.synchronizeFull();
+        synchronizeCatalogUseCase.synchronize();
 
-        SyncResult result = synchronizeCatalogUseCase.synchronizeFull();
+        Optional<SyncResult> result = synchronizeCatalogUseCase.synchronize();
 
-        assertThat(result).isEqualTo(new SyncResult(9, 4, SyncType.FULL));
+        assertThat(result)
+                .contains(new SyncResult(9, 4, SyncType.FULL, "la cátedra retrocedió de la versión 9 a la 4"));
         assertThat(syncState()).containsEntry("local_version", 4L);
     }
 
@@ -167,11 +187,12 @@ class SynchronizeCatalogIntegrationTest {
     void updatesTheExistingRowsWhenTheCatedraChangesThem() {
         var renamed = category(1);
         renamed.setName("Cardiologia");
+        when(catedraSyncSource.readMetadata()).thenReturn(published(7, 0), published(8, 8));
         when(catedraApiClient.fetchSnapshot()).thenReturn(validSnapshot(7),
                 snapshot(8, List.of(renamed), List.of(professional(10, 1)), List.of(schedule(100, 10))));
-        synchronizeCatalogUseCase.synchronizeFull();
+        synchronizeCatalogUseCase.synchronize();
 
-        synchronizeCatalogUseCase.synchronizeFull();
+        synchronizeCatalogUseCase.synchronize();
 
         assertThat(categoryName(1)).isEqualTo("Cardiologia");
         assertThat(count("professional_categories")).isEqualTo(1);

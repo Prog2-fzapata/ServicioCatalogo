@@ -1,5 +1,7 @@
 package ar.edu.um.prog2.fzapata.catalogo.shared.security;
 
+import static ar.edu.um.prog2.fzapata.catalogo.shared.web.ApiPrefixConfiguration.API_PREFIX;
+
 import java.util.List;
 
 import org.springframework.context.annotation.Bean;
@@ -20,7 +22,7 @@ import org.springframework.security.web.SecurityFilterChain;
 public class SecurityConfiguration {
 
     // Únicos endpoints públicos de la API (POST); también los usa la documentación OpenAPI
-    static final List<String> PUBLIC_API_PATHS = List.of("/api/register", "/api/authenticate");
+    static final List<String> PUBLIC_API_PATHS = List.of(API_PREFIX + "/register", API_PREFIX + "/authenticate");
 
     // Es una lista ordenada de filtros
     @Bean

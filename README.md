@@ -289,7 +289,7 @@ Todas las líneas de log se escriben igual (mensaje fijo y datos como campos), y
 
 | Se registra | Mensaje y campos |
 | --- | --- |
-| Un evento de Kafka, con su resultado | `Evento de catálogo: aplicado` (`syncType`, `fromVersion`, `toVersion`, `snapshotReason` si hubo snapshot) y `Evento de catálogo: nada que aplicar (…)` para un duplicado o una copia que ya estaba al día; ambos con `eventId` y `eventVersion` |
+| Un evento de Kafka, con su resultado | `Evento de catálogo: aplicado` (`syncType`, `fromVersion`, `toVersion`, `snapshotReason` si hubo snapshot) y `Evento de catálogo: nada que aplicar. …` para un duplicado o una copia que ya estaba al día; ambos con `eventId` y `eventVersion` |
 | La verificación de versión que aplicó algo | `Verificación de versión: aplicado`, con los mismos campos que el evento, sin `eventId` |
 | La cátedra que retrocede de versión (se aplica igual: es la fuente de verdad) | `…: la cátedra retrocedió la versión del catálogo` (`WARN`, `fromVersion`, `toVersion`) |
 | Una vuelta de verificación que falló | `La verificación de versión falló; se reintenta en la próxima vuelta` (`ERROR`, la excepción en `error`) |

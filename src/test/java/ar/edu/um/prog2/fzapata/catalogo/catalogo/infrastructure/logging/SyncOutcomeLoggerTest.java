@@ -42,8 +42,8 @@ class SyncOutcomeLoggerTest {
 
         ILoggingEvent line = theOnlyLine();
         assertThat(line.getLevel()).isEqualTo(Level.INFO);
-        assertThat(line.getFormattedMessage())
-                .isEqualTo("Evento de catálogo: nada que aplicar (ya procesado o la copia ya está al día)");
+        assertThat(line.getFormattedMessage()).isEqualTo(
+                "Evento de catálogo: nada que aplicar. El evento ya fue procesado o la copia ya está al día.");
         assertThat(LogCapture.fieldsOf(line)).isEqualTo(Map.of("eventId", "e1", "eventVersion", 7L));
     }
 
@@ -54,7 +54,8 @@ class SyncOutcomeLoggerTest {
 
         ILoggingEvent line = theOnlyLine();
         assertThat(line.getLevel()).isEqualTo(Level.DEBUG);
-        assertThat(line.getFormattedMessage()).startsWith("Verificación de versión: nada que aplicar");
+        assertThat(line.getFormattedMessage())
+                .isEqualTo("Verificación de versión: nada que aplicar. La copia ya está al día.");
         assertThat(LogCapture.fieldsOf(line)).isEmpty();
     }
 

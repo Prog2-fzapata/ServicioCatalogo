@@ -30,12 +30,14 @@ public class SearchProfessionalsUseCaseImpl implements SearchProfessionalsUseCas
     private final ProfessionalCategoryRepository professionalCategoryRepository;
     private final WeeklyScheduleRepository weeklyScheduleRepository;
 
+    // Map: Key CategoryId y Value ProfessionalCategory
     private Map<Long, ProfessionalCategory> categories(List<Professional> professionals) {
         Set<Long> categoryIds = professionals.stream().map(Professional::getCategoryId).collect(Collectors.toSet());
         return professionalCategoryRepository.findAllById(categoryIds).stream()
                 .collect(Collectors.toMap(ProfessionalCategory::getId, Function.identity()));
     }
 
+    // Key: ProfessionalId y Value: List de WeeklySchedule
     private Map<Long, List<WeeklySchedule>> schedulesByProfessional(List<Professional> professionals) {
         Set<Long> professionalIds = professionals.stream().map(Professional::getId).collect(Collectors.toSet());
         return weeklyScheduleRepository.findEnabledByProfessionalIds(professionalIds).stream()
@@ -53,6 +55,8 @@ public class SearchProfessionalsUseCaseImpl implements SearchProfessionalsUseCas
         }
         Map<Long, ProfessionalCategory> categories = categories(found.content());
         Map<Long, List<WeeklySchedule>> schedules = schedulesByProfessional(found.content());
+
+        // Por cada professional arma su ProfessionalSumary con el nombre y habilitación de la categoría y una lista de sus horarios
         return found.map(professional -> {
             ProfessionalCategory category = categories.get(professional.getCategoryId());
             return new ProfessionalSummary(professional, category == null ? null : category.getName(),
