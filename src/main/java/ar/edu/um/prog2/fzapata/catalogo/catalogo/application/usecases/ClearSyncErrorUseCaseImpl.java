@@ -28,9 +28,7 @@ public class ClearSyncErrorUseCaseImpl implements ClearSyncErrorUseCase {
         if (state.getLastStatus() != SyncStatus.ERROR) {
             return;
         }
-        state.setLastSyncAt(clock.instant());
-        state.setLastStatus(SyncStatus.OK);
-        state.setLastError(null);
+        state.clearError(clock.instant());
         syncStateRepository.save(state);
     }
 }

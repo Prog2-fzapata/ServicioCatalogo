@@ -8,7 +8,6 @@ import org.springframework.transaction.annotation.Transactional;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.application.exception.CatedraException;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.application.exception.SyncStateMissingException;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.SyncState;
-import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.SyncStatus;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.SyncType;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.ports.in.RecordSyncFailureUseCase;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.ports.out.SyncStateRepository;
@@ -42,10 +41,7 @@ public class RecordSyncFailureUseCaseImpl implements RecordSyncFailureUseCase {
     public void recordFailure(SyncType type, Throwable cause) {
         SyncState state = syncStateRepository.findForUpdate()
                 .orElseThrow(SyncStateMissingException::new);
-        state.setLastSyncAt(clock.instant());
-        state.setLastSyncType(type);
-        state.setLastStatus(SyncStatus.ERROR);
-        state.setLastError(describe(cause));
+        state.recordFailure(type, describe(cause), clock.instant());
         syncStateRepository.save(state);
     }
 }

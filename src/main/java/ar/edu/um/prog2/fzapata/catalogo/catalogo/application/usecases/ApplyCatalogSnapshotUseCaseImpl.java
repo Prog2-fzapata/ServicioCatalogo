@@ -9,7 +9,6 @@ import ar.edu.um.prog2.fzapata.catalogo.catalogo.application.exception.SyncState
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.CatalogSnapshot;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.SyncResult;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.SyncState;
-import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.SyncStatus;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.SyncType;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.ports.in.ApplyCatalogSnapshotUseCase;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.ports.out.CatalogRepository;
@@ -38,11 +37,7 @@ public class ApplyCatalogSnapshotUseCaseImpl implements ApplyCatalogSnapshotUseC
         catalogRepository.replaceAll(snapshot);
 
         // Actualiza estado en memoria
-        state.setLocalVersion(snapshot.getVersion());
-        state.setLastSyncAt(clock.instant());
-        state.setLastSyncType(SyncType.FULL);
-        state.setLastStatus(SyncStatus.OK);
-        state.setLastError(null);
+        state.recordSuccess(snapshot.getVersion(), SyncType.FULL, clock.instant());
 
         syncStateRepository.save(state);
 
