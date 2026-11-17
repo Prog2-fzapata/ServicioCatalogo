@@ -55,12 +55,8 @@ class JpaSyncStateRepositoryAdapterTest {
     @Test
     void savesEveryFieldInTheSingleRow() {
         Instant at = Instant.parse("2026-10-21T15:00:00Z");
-        SyncState state = adapter.findForUpdate().orElseThrow();
-        state.setLocalVersion(7);
-        state.setLastSyncAt(at);
-        state.setLastSyncType(SyncType.FULL);
-        state.setLastStatus(SyncStatus.ERROR);
-        state.setLastError("CatedraUnavailableException: sin conexión");
+        SyncState state = SyncState.builder().localVersion(7).lastSyncAt(at).lastSyncType(SyncType.FULL)
+                .lastStatus(SyncStatus.ERROR).lastError("CatedraUnavailableException: sin conexión").build();
 
         adapter.save(state);
         flushAndClear();

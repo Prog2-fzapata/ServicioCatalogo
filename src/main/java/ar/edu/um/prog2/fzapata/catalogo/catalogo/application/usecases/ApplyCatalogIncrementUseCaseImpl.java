@@ -9,7 +9,6 @@ import ar.edu.um.prog2.fzapata.catalogo.catalogo.application.exception.SyncState
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.CatalogIncrement;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.SyncResult;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.SyncState;
-import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.SyncStatus;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.model.SyncType;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.ports.in.ApplyCatalogIncrementUseCase;
 import ar.edu.um.prog2.fzapata.catalogo.catalogo.domain.ports.out.CatalogRepository;
@@ -42,11 +41,7 @@ public class ApplyCatalogIncrementUseCaseImpl implements ApplyCatalogIncrementUs
         catalogRepository.upsert(increment);
 
         // Actualizar el estado en memoria
-        state.setLocalVersion(increment.getVersion());
-        state.setLastSyncAt(clock.instant());
-        state.setLastSyncType(SyncType.INCREMENTAL);
-        state.setLastStatus(SyncStatus.OK);
-        state.setLastError(null);
+        state.recordSuccess(increment.getVersion(), SyncType.INCREMENTAL, clock.instant());
 
         // Guardar el estado
         syncStateRepository.save(state);
