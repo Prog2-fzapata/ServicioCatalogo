@@ -39,8 +39,9 @@ public class CatedraApiClientAdapter implements CatedraApiClient {
     @Override
     public CatalogSnapshot fetchSnapshot() {
         try {
+            // Hacece GET a la snapshotPath y convierte el JSON de respuesta a CatedraSnapshotResponse
             CatedraSnapshotResponse response = catedraRestClient.get()
-                    .uri(contract.snapshotPath())
+                    .uri(contract.snapshotPath()) // Path por configuración
                     .retrieve()
                     .onStatus(HttpStatusCode::isError, (request, httpResponse) -> {
                         throw translate(httpResponse.getStatusCode());
@@ -53,6 +54,7 @@ public class CatedraApiClientAdapter implements CatedraApiClient {
         } catch (RestClientException e) {
             // Llegó una respuesta, pero su cuerpo no se pudo leer como JSON del contrato. No viaja como causa: el mensaje
             // del parser repite el comienzo del cuerpo (por ejemplo, un JWT que la cátedra devolvió) y saldría en la traza
+            // Arma el problem con la causa más interna, el objeto, el nombre de la clase y el problema.
             String problem = NestedExceptionUtils.getMostSpecificCause(e).getClass().getSimpleName();
             throw new CatedraResponseException("La respuesta de la cátedra no se pudo leer (" + problem + ")", null);
         }

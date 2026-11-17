@@ -22,12 +22,16 @@ public class OpenApiConfiguration {
     @Bean
     OpenApiCustomizer bearerJwtCustomizer() {
         return openApi -> {
+            //  Verifica que ya tenga sección components, evita el NullPointer
             if (openApi.getComponents() == null) {
                 openApi.setComponents(new Components());
             }
+            // Declara el esquema de seguridad bearer-jwt. Muestra el botón Authorize
             openApi.getComponents().addSecuritySchemes(BEARER_SCHEME,
                     new SecurityScheme().type(SecurityScheme.Type.HTTP).scheme("bearer").bearerFormat("JWT"));
             openApi.addSecurityItem(new SecurityRequirement().addList(BEARER_SCHEME));
+
+            // Quita la exigencia a los endpoints públicos
             SecurityConfiguration.PUBLIC_API_PATHS.stream()
                     .map(path -> openApi.getPaths() == null ? null : openApi.getPaths().get(path))
                     .filter(Objects::nonNull)

@@ -86,8 +86,10 @@ public class SynchronizeCatalogUseCaseImpl implements SynchronizeCatalogUseCase 
     }
 
     private CatalogIncrement readIncrement(long version) {
+        // Pedir ids que cambiaron en la version
         CatalogChanges changes = catedraSyncSource.readChanges(version).orElseThrow(
                 () -> new IllegalStateException("La cátedra ya no conserva los cambios de la versión " + version));
+        // CatalogINcrement con las entidades completas
         return CatalogIncrement.builder()
                 .version(version)
                 .categories(catedraSyncSource.readCategories(changes.categoryIds()))

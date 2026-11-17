@@ -19,6 +19,7 @@ import ar.edu.um.prog2.fzapata.catalogo.catalogo.infrastructure.web.exception.In
 @Component
 public class CategoryQueryMapper {
 
+    // objectName para el primer argumento de las excepciones
     public static final String SEARCH_OBJECT = "categorySearch";
 
     // Los únicos nombres de campo que acepta sort, como aparecen en la respuesta
@@ -26,10 +27,12 @@ public class CategoryQueryMapper {
             "id", Field.ID,
             "name", Field.NAME);
 
+    // True filtra enabled o false filtra disabled. Si es null, no filtra.
     public CategoryFilter toFilter(Boolean enabled) {
         return new CategoryFilter(enabled);
     }
 
+    // Convierte a PageQuery con número de página y tamaño.
     public PageQuery toPageQuery(Pageable pageable) {
         return new PageQuery(pageable.getPageNumber(), pageable.getPageSize());
     }

@@ -37,18 +37,25 @@ public class ProfessionalController {
     @Operation(summary = "Busca profesionales con filtros opcionales y paginación, sobre la copia local del catálogo")
     @GetMapping
     public ResponseEntity<List<ProfessionalSummaryResponse>> searchProfessionals(
-            @Parameter(description = "Solo los de esta categoría") @RequestParam(required = false) Long categoryId,
+
+            @Parameter(description = "Solo los de esta categoría")
+            @RequestParam(required = false) Long categoryId,
+
             @Parameter(description = "Texto parcial sobre nombre y apellido, sin distinguir mayúsculas ni tildes")
             @RequestParam(required = false) String name,
+
             @Parameter(description = "true o false; sin valor devuelve habilitados y deshabilitados")
             @RequestParam(required = false) Boolean enabled,
+
             @Parameter(description = "true: tiene al menos un horario semanal habilitado; false: no tiene ninguno")
             @RequestParam(required = false) Boolean available,
+
             @ParameterObject Pageable pageable) {
+
         PagedResult<ProfessionalSummary> result = catalogService.searchProfessionals(
-                professionalQueryMapper.toFilter(categoryId, name, enabled, available),
-                professionalQueryMapper.toPageQuery(pageable),
-                professionalQueryMapper.toSortOrder(pageable));
+                professionalQueryMapper.toFilter(categoryId, name, enabled, available), // ProfessionalFilter
+                professionalQueryMapper.toPageQuery(pageable), // PageQuery
+                professionalQueryMapper.toSortOrder(pageable)); // List<ProfessionalSortOrder>
         List<ProfessionalSummaryResponse> body = result.content().stream().map(professionalDtoMapper::toResponse)
                 .toList();
         return ResponseEntity.ok()

@@ -29,6 +29,7 @@ public class ProfessionalQueryMapper {
             "lastName", Field.LAST_NAME);
 
     public ProfessionalFilter toFilter(Long categoryId, String name, Boolean enabled, Boolean available) {
+        // Al ser name opcional, puede ser null. En caso de no serlo, no puede ser superior al valor máximo
         if (name != null && name.length() > MAX_NAME_LENGTH) {
             throw new InvalidSearchParameterException(SEARCH_OBJECT, "name",
                     "El nombre no puede tener más de " + MAX_NAME_LENGTH + " caracteres");
@@ -46,6 +47,7 @@ public class ProfessionalQueryMapper {
             return ProfessionalSortOrder.byName();
         }
         List<ProfessionalSortOrder> order = new ArrayList<>();
+        // Pageable trae un Sort que es una colección de Sort.Order, cada uno trae su property y direction
         for (Sort.Order item : pageable.getSort()) {
             Field field = SORTABLE.get(item.getProperty());
             if (field == null) {

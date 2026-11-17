@@ -52,7 +52,7 @@ public class CatedraSyncSourceAdapter implements CatedraSyncSource {
             throw new CatedraUnavailableException("No se pudo leer Redis de la cátedra", e);
         }
     }
-
+    // Parsea la respuesta de Redis al tipo de Response indicado, key es para la exception
     private <T> T parse(String json, Class<T> type, String key) {
         try {
             return jsonMapper.readValue(json, type);
@@ -60,7 +60,7 @@ public class CatedraSyncSourceAdapter implements CatedraSyncSource {
             throw new CatedraResponseException("El valor de " + key + " no se pudo leer como JSON", e);
         }
     }
-
+    // Verifica que value no sea null, key e id son para la exception lanzada por el mapper
     private String present(Object value, String key, String id) {
         if (value == null) {
             throw entityMapper.invalid("falta el id " + id + " en " + key);
@@ -70,11 +70,18 @@ public class CatedraSyncSourceAdapter implements CatedraSyncSource {
 
     // El field del hash es el id decimal y el valor es el JSON de la entidad
     private <D, E> List<E> readByIds(String key, Collection<Long> ids, Class<D> type, Function<D, E> toDomain) {
+        // fields es una lista de ids como string sin repetir
         List<String> fields = ids.stream().distinct().map(String::valueOf).toList();
+
+        // Define el supplier para redis() que devuelve el una lista de objetos de HMGET a partir de key y lista de campos a pedir (IDs)
+        //[0] 201 -> {"id":201,"categoryId":101,"firstName":"Ana", ... }
+        //[1] 214 -> {"id":214,"categoryId":105,"firstName":"Mariana", ... }
         List<Object> values = redis(() -> redisTemplate.opsForHash().multiGet(key, List.<Object>copyOf(fields)));
-        return IntStream.range(0, fields.size())
+
+        return IntStream.range(0, fields.size()) // Genera una secuencia de números del 0 hasta la cantidad de entidades -1
+                // 1. Extrae los datos de values y fields, controla que no sean null, parsea a Response para aplicar luego toDomain
                 .mapToObj(i -> toDomain.apply(parse(present(values.get(i), key, fields.get(i)), type, key)))
-                .toList();
+                .toList(); // Arma lista de domain models
     }
 
     @Override

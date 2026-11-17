@@ -31,7 +31,10 @@ public class JpaProfessionalRepositoryAdapter implements ProfessionalRepository 
 
     // Cada criterio presente se suma con AND; sin criterios, la especificación vacía devuelve todos
     private Specification<ProfessionalEntity> toSpecification(ProfessionalFilter filter) {
+
+        // Armamos una lista de los criterios, cada uno es una Specification que define
         List<Specification<ProfessionalEntity>> criteria = new ArrayList<>();
+
         if (filter.categoryId() != null) {
             criteria.add(ProfessionalSpecifications.inCategory(filter.categoryId()));
         }

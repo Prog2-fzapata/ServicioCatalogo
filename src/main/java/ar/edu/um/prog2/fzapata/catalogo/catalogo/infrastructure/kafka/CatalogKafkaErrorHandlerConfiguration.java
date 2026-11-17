@@ -19,8 +19,8 @@ public class CatalogKafkaErrorHandlerConfiguration {
     DefaultErrorHandler catalogKafkaErrorHandler(CatedraKafkaProperties properties) {
         ExponentialBackOff backOff = new ExponentialBackOff(properties.initialBackoff().toMillis(), BACKOFF_MULTIPLIER);
         backOff.setMaxAttempts(properties.maxRetries());
-        DefaultErrorHandler handler = new DefaultErrorHandler(backOff);
-        handler.addNotRetryableExceptions(InvalidCatalogEventException.class);
+        DefaultErrorHandler handler = new DefaultErrorHandler(backOff); // Un error handler con la política de espera.
+        handler.addNotRetryableExceptions(InvalidCatalogEventException.class); // Aclarar excepciones no reintentables
         return handler;
     }
 }
