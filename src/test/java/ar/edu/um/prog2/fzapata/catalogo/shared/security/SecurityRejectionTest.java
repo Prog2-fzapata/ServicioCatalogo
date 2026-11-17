@@ -48,12 +48,12 @@ class SecurityRejectionTest {
     @RestController
     static class SecurityProbeController {
 
-        @GetMapping("/api/probe")
+        @GetMapping("/probe")
         String authenticated() {
             return "ok";
         }
 
-        @GetMapping("/api/probe/admin")
+        @GetMapping("/probe/admin")
         @PreAuthorize("hasAuthority('ROLE_ADMIN')")
         String adminOnly() {
             return "ok";
