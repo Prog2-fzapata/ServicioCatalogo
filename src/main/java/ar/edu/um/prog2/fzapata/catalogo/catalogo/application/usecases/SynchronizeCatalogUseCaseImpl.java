@@ -178,11 +178,6 @@ public class SynchronizeCatalogUseCaseImpl implements SynchronizeCatalogUseCase 
     }
 
     @Override
-    public SyncResult synchronizeFull() {
-        return withLock(() -> fetchAndApply(applyCatalogSnapshotUseCase::applySnapshot));
-    }
-
-    @Override
     public Optional<SyncResult> synchronize() {
         return withLock(() -> synchronizeFor(Optional.empty()));
     }
