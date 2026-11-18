@@ -44,13 +44,6 @@ public class JwtConfiguration {
         return decoder;
     }
 
-    // El validador por defecto controla la vigencia (exp, nbf) pero acepta un token sin exp, que no vencería nunca
-    private static JwtTimestampValidator timestampValidatorRequiringExpiry() {
-        JwtTimestampValidator validator = new JwtTimestampValidator();
-        validator.setAllowEmptyExpiryClaim(false);
-        return validator;
-    }
-
     @Bean
     Clock clock() {
         return Clock.systemUTC();
@@ -69,5 +62,12 @@ public class JwtConfiguration {
                     + " bits (" + MIN_SECRET_BYTES + " bytes); generarlo con: openssl rand -base64 64");
         }
         return new SecretKeySpec(bytes, ALGORITHM.getName());
+    }
+
+    // El validador por defecto controla la vigencia (exp, nbf) pero acepta un token sin exp, que no vencería nunca
+    private static JwtTimestampValidator timestampValidatorRequiringExpiry() {
+        JwtTimestampValidator validator = new JwtTimestampValidator();
+        validator.setAllowEmptyExpiryClaim(false);
+        return validator;
     }
 }

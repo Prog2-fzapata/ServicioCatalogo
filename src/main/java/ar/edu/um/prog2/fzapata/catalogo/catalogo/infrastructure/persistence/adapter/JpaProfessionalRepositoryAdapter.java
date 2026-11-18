@@ -29,35 +29,6 @@ public class JpaProfessionalRepositoryAdapter implements ProfessionalRepository 
     private final JpaProfessionalRepository jpaProfessionalRepository;
     private final CatalogMapper catalogMapper;
 
-    // Cada criterio presente se suma con AND; sin criterios, la especificación vacía devuelve todos
-    private Specification<ProfessionalEntity> toSpecification(ProfessionalFilter filter) {
-
-        // Armamos una lista de los criterios, cada uno es una Specification que define
-        List<Specification<ProfessionalEntity>> criteria = new ArrayList<>();
-
-        if (filter.categoryId() != null) {
-            criteria.add(ProfessionalSpecifications.inCategory(filter.categoryId()));
-        }
-        if (filter.name() != null) {
-            criteria.add(ProfessionalSpecifications.nameContains(filter.name()));
-        }
-        if (filter.enabled() != null) {
-            criteria.add(ProfessionalSpecifications.hasEnabled(filter.enabled()));
-        }
-        if (filter.available() != null) {
-            criteria.add(ProfessionalSpecifications.hasEnabledSchedule(filter.available()));
-        }
-        return Specification.allOf(criteria);
-    }
-
-    private String attributeOf(ProfessionalSortOrder.Field field) {
-        return switch (field) {
-            case ID -> "id";
-            case FIRST_NAME -> "firstName";
-            case LAST_NAME -> "lastName";
-        };
-    }
-
     // El id desempata siempre: sin un orden total, dos pedidos de páginas seguidas podrían repetir o saltear filas
     Sort toSort(List<ProfessionalSortOrder> order) {
         List<Sort.Order> orders = new ArrayList<>(order.stream()
@@ -84,5 +55,34 @@ public class JpaProfessionalRepositoryAdapter implements ProfessionalRepository 
     @Override
     public Optional<Professional> findById(Long id) {
         return jpaProfessionalRepository.findById(id).map(catalogMapper::toDomainModel);
+    }
+
+    private String attributeOf(ProfessionalSortOrder.Field field) {
+        return switch (field) {
+            case ID -> "id";
+            case FIRST_NAME -> "firstName";
+            case LAST_NAME -> "lastName";
+        };
+    }
+
+    // Cada criterio presente se suma con AND; sin criterios, la especificación vacía devuelve todos
+    private Specification<ProfessionalEntity> toSpecification(ProfessionalFilter filter) {
+
+        // Armamos una lista de los criterios, cada uno es una Specification que define
+        List<Specification<ProfessionalEntity>> criteria = new ArrayList<>();
+
+        if (filter.categoryId() != null) {
+            criteria.add(ProfessionalSpecifications.inCategory(filter.categoryId()));
+        }
+        if (filter.name() != null) {
+            criteria.add(ProfessionalSpecifications.nameContains(filter.name()));
+        }
+        if (filter.enabled() != null) {
+            criteria.add(ProfessionalSpecifications.hasEnabled(filter.enabled()));
+        }
+        if (filter.available() != null) {
+            criteria.add(ProfessionalSpecifications.hasEnabledSchedule(filter.available()));
+        }
+        return Specification.allOf(criteria);
     }
 }

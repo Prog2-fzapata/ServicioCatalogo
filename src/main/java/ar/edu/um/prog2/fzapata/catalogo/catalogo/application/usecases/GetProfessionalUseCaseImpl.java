@@ -23,9 +23,9 @@ public class GetProfessionalUseCaseImpl implements GetProfessionalUseCase {
     private final ProfessionalCategoryRepository professionalCategoryRepository;
     private final WeeklyScheduleRepository weeklyScheduleRepository;
 
-    private List<WeeklySchedule> schedules(Professional professional) {
-        return weeklyScheduleRepository.findByProfessionalId(professional.getId()).stream()
-                .sorted(WeeklySchedule.BY_DAY_AND_START_TIME).toList();
+    @Override
+    public Optional<ProfessionalSummary> getProfessional(Long id) {
+        return professionalRepository.findById(id).map(this::summary);
     }
 
     // La clave foránea garantiza que la categoría existe; deshabilitada o no, se informa igual. Si faltara, no se
@@ -37,8 +37,8 @@ public class GetProfessionalUseCaseImpl implements GetProfessionalUseCase {
                 category.map(ProfessionalCategory::isEnabled).orElse(false), schedules(professional));
     }
 
-    @Override
-    public Optional<ProfessionalSummary> getProfessional(Long id) {
-        return professionalRepository.findById(id).map(this::summary);
+    private List<WeeklySchedule> schedules(Professional professional) {
+        return weeklyScheduleRepository.findByProfessionalId(professional.getId()).stream()
+                .sorted(WeeklySchedule.BY_DAY_AND_START_TIME).toList();
     }
 }

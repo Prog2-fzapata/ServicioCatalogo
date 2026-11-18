@@ -31,23 +31,6 @@ public class JpaCatalogRepositoryAdapter implements CatalogRepository {
     private final JpaWeeklyScheduleRepository jpaWeeklyScheduleRepository;
     private final CatalogMapper catalogMapper;
 
-    private <T> Set<Long> idsOf(List<T> items, Function<T, Long> idOf) {
-        return items.stream().map(idOf).collect(Collectors.toSet());
-    }
-
-    // Filas que están en la base y ya no llegan en el snapshot
-    private <E> List<E> missing(List<E> current, Function<E, Long> idOf, Set<Long> snapshotIds) {
-        return current.stream().filter(entity -> !snapshotIds.contains(idOf.apply(entity))).toList();
-    }
-
-    // Se escribe de padres a hijos por las claves foráneas
-    private void saveAll(List<ProfessionalCategory> categories, List<Professional> professionals,
-            List<WeeklySchedule> schedules) {
-        jpaProfessionalCategoryRepository.saveAll(categories.stream().map(catalogMapper::toEntity).toList());
-        jpaProfessionalRepository.saveAll(professionals.stream().map(catalogMapper::toEntity).toList());
-        jpaWeeklyScheduleRepository.saveAll(schedules.stream().map(catalogMapper::toEntity).toList());
-    }
-
     @Override
     public void replaceAll(CatalogSnapshot snapshot) {
         // Se leen las tres tablas primero: las filas quedan en la memoria de Hibernate, así el save de cada
@@ -71,5 +54,22 @@ public class JpaCatalogRepositoryAdapter implements CatalogRepository {
     @Override
     public void upsert(CatalogIncrement increment) {
         saveAll(increment.getCategories(), increment.getProfessionals(), increment.getWeeklySchedules());
+    }
+
+    // Se escribe de padres a hijos por las claves foráneas
+    private void saveAll(List<ProfessionalCategory> categories, List<Professional> professionals,
+            List<WeeklySchedule> schedules) {
+        jpaProfessionalCategoryRepository.saveAll(categories.stream().map(catalogMapper::toEntity).toList());
+        jpaProfessionalRepository.saveAll(professionals.stream().map(catalogMapper::toEntity).toList());
+        jpaWeeklyScheduleRepository.saveAll(schedules.stream().map(catalogMapper::toEntity).toList());
+    }
+
+    // Filas que están en la base y ya no llegan en el snapshot
+    private <E> List<E> missing(List<E> current, Function<E, Long> idOf, Set<Long> snapshotIds) {
+        return current.stream().filter(entity -> !snapshotIds.contains(idOf.apply(entity))).toList();
+    }
+
+    private <T> Set<Long> idsOf(List<T> items, Function<T, Long> idOf) {
+        return items.stream().map(idOf).collect(Collectors.toSet());
     }
 }

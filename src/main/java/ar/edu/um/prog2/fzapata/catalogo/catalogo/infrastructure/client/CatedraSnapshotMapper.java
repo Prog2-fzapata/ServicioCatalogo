@@ -15,10 +15,6 @@ public class CatedraSnapshotMapper {
 
     private final CatedraEntityMapper entityMapper;
 
-    private <T, R> List<R> mapAll(List<T> items, Function<T, R> mapper) {
-        return items.stream().map(mapper).toList();
-    }
-
     // Un snapshot incompleto no se aplica a medias: cualquier dato obligatorio ausente lo rechaza entero
     public CatalogSnapshot toDomainModel(CatedraSnapshotResponse response) {
         if (response == null) {
@@ -34,5 +30,9 @@ public class CatedraSnapshotMapper {
                 .weeklySchedules(mapAll(entityMapper.required(response.weeklySchedules(), "weeklySchedules"),
                         entityMapper::toDomainModel))
                 .build();
+    }
+
+    private <T, R> List<R> mapAll(List<T> items, Function<T, R> mapper) {
+        return items.stream().map(mapper).toList();
     }
 }
