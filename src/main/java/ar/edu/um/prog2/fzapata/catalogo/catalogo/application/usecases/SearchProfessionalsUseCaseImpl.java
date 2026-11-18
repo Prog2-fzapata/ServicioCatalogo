@@ -30,21 +30,6 @@ public class SearchProfessionalsUseCaseImpl implements SearchProfessionalsUseCas
     private final ProfessionalCategoryRepository professionalCategoryRepository;
     private final WeeklyScheduleRepository weeklyScheduleRepository;
 
-    // Map: Key CategoryId y Value ProfessionalCategory
-    private Map<Long, ProfessionalCategory> categories(List<Professional> professionals) {
-        Set<Long> categoryIds = professionals.stream().map(Professional::getCategoryId).collect(Collectors.toSet());
-        return professionalCategoryRepository.findAllById(categoryIds).stream()
-                .collect(Collectors.toMap(ProfessionalCategory::getId, Function.identity()));
-    }
-
-    // Key: ProfessionalId y Value: List de WeeklySchedule
-    private Map<Long, List<WeeklySchedule>> schedulesByProfessional(List<Professional> professionals) {
-        Set<Long> professionalIds = professionals.stream().map(Professional::getId).collect(Collectors.toSet());
-        return weeklyScheduleRepository.findEnabledByProfessionalIds(professionalIds).stream()
-                .sorted(WeeklySchedule.BY_DAY_AND_START_TIME)
-                .collect(Collectors.groupingBy(WeeklySchedule::getProfessionalId));
-    }
-
     // Tres consultas por página sin importar cuántos profesionales traiga: la página, las categorías y los horarios
     @Override
     public PagedResult<ProfessionalSummary> searchProfessionals(ProfessionalFilter filter, PageQuery page,
@@ -63,5 +48,20 @@ public class SearchProfessionalsUseCaseImpl implements SearchProfessionalsUseCas
                     category != null && category.isEnabled(),
                     schedules.getOrDefault(professional.getId(), List.of()));
         });
+    }
+
+    // Map: Key CategoryId y Value ProfessionalCategory
+    private Map<Long, ProfessionalCategory> categories(List<Professional> professionals) {
+        Set<Long> categoryIds = professionals.stream().map(Professional::getCategoryId).collect(Collectors.toSet());
+        return professionalCategoryRepository.findAllById(categoryIds).stream()
+                .collect(Collectors.toMap(ProfessionalCategory::getId, Function.identity()));
+    }
+
+    // Key: ProfessionalId y Value: List de WeeklySchedule
+    private Map<Long, List<WeeklySchedule>> schedulesByProfessional(List<Professional> professionals) {
+        Set<Long> professionalIds = professionals.stream().map(Professional::getId).collect(Collectors.toSet());
+        return weeklyScheduleRepository.findEnabledByProfessionalIds(professionalIds).stream()
+                .sorted(WeeklySchedule.BY_DAY_AND_START_TIME)
+                .collect(Collectors.groupingBy(WeeklySchedule::getProfessionalId));
     }
 }

@@ -12,26 +12,6 @@ import ar.edu.um.prog2.fzapata.catalogo.catalogo.infrastructure.web.dto.WeeklySc
 @Component
 public class ProfessionalDtoMapper {
 
-    private WeeklyScheduleSummaryResponse toResponse(WeeklySchedule schedule) {
-        return WeeklyScheduleSummaryResponse.builder()
-                .dayOfWeek(schedule.getDayOfWeek())
-                .startTime(schedule.getStartTime())
-                .endTime(schedule.getEndTime())
-                .slotDurationMinutes(schedule.getSlotDurationMinutes())
-                .build();
-    }
-
-    private WeeklyScheduleDetailResponse toDetailResponse(WeeklySchedule schedule) {
-        return WeeklyScheduleDetailResponse.builder()
-                .id(schedule.getId())
-                .dayOfWeek(schedule.getDayOfWeek())
-                .startTime(schedule.getStartTime())
-                .endTime(schedule.getEndTime())
-                .slotDurationMinutes(schedule.getSlotDurationMinutes())
-                .enabled(schedule.isEnabled())
-                .build();
-    }
-
     public ProfessionalDetailResponse toDetailResponse(ProfessionalSummary summary) {
         if (summary == null) return null;
         return ProfessionalDetailResponse.builder()
@@ -56,6 +36,26 @@ public class ProfessionalDtoMapper {
                 .lastName(summary.professional().getLastName())
                 .enabled(summary.professional().isEnabled())
                 .weeklySchedules(summary.weeklySchedules().stream().map(this::toResponse).toList())
+                .build();
+    }
+
+    private WeeklyScheduleSummaryResponse toResponse(WeeklySchedule schedule) {
+        return WeeklyScheduleSummaryResponse.builder()
+                .dayOfWeek(schedule.getDayOfWeek())
+                .startTime(schedule.getStartTime())
+                .endTime(schedule.getEndTime())
+                .slotDurationMinutes(schedule.getSlotDurationMinutes())
+                .build();
+    }
+
+    private WeeklyScheduleDetailResponse toDetailResponse(WeeklySchedule schedule) {
+        return WeeklyScheduleDetailResponse.builder()
+                .id(schedule.getId())
+                .dayOfWeek(schedule.getDayOfWeek())
+                .startTime(schedule.getStartTime())
+                .endTime(schedule.getEndTime())
+                .slotDurationMinutes(schedule.getSlotDurationMinutes())
+                .enabled(schedule.isEnabled())
                 .build();
     }
 }

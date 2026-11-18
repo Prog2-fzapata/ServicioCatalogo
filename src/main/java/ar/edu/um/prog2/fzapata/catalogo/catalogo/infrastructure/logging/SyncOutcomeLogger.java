@@ -31,14 +31,6 @@ public class SyncOutcomeLogger {
         log(new Origin("Verificación de versión", Level.DEBUG, "La copia ya está al día.", null, null), result);
     }
 
-    private LoggingEventBuilder line(Level level, Origin origin, String message) {
-        LoggingEventBuilder event = log.atLevel(level).setMessage(origin.name() + ": " + message);
-        if (origin.eventId() != null) {
-            event = event.addKeyValue("eventId", origin.eventId()).addKeyValue("eventVersion", origin.eventVersion());
-        }
-        return event;
-    }
-
     private void log(Origin origin, Optional<SyncResult> result) {
         if (result.isEmpty()) {
             line(origin.whenNothingToApply(), origin, "nada que aplicar. " + origin.whyNothing()).log();
@@ -57,5 +49,13 @@ public class SyncOutcomeLogger {
             event = event.addKeyValue("snapshotReason", applied.snapshotReason());
         }
         event.log();
+    }
+
+    private LoggingEventBuilder line(Level level, Origin origin, String message) {
+        LoggingEventBuilder event = log.atLevel(level).setMessage(origin.name() + ": " + message);
+        if (origin.eventId() != null) {
+            event = event.addKeyValue("eventId", origin.eventId()).addKeyValue("eventVersion", origin.eventVersion());
+        }
+        return event;
     }
 }

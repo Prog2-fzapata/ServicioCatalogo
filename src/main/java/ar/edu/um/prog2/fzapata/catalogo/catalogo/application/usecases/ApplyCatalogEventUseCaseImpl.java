@@ -27,19 +27,6 @@ public class ApplyCatalogEventUseCaseImpl implements ApplyCatalogEventUseCase {
     private final ProcessedEventRepository processedEventRepository;
     private final Clock clock;
 
-    private Optional<SyncResult> applyOnce(CatalogUpdatedEvent event, Supplier<SyncResult> apply) {
-        if (processedEventRepository.existsById(event.eventId())) {
-            return Optional.empty();
-        }
-        SyncResult result = apply.get();
-        processedEventRepository.save(ProcessedEvent.builder()
-                .eventId(event.eventId())
-                .eventType(event.eventType())
-                .processedAt(clock.instant())
-                .build());
-        return Optional.of(result);
-    }
-
     // Datos, versión y eventId en una sola transacción: si algo falla no queda ninguno de los tres y Kafka
     // reentrega el evento. La clave primaria de processed_events rechaza al repetido si dos corren a la vez
     @Override
@@ -52,5 +39,18 @@ public class ApplyCatalogEventUseCaseImpl implements ApplyCatalogEventUseCase {
     @Transactional
     public Optional<SyncResult> applyEvent(CatalogUpdatedEvent event, CatalogIncrement increment) {
         return applyOnce(event, () -> applyCatalogIncrementUseCase.applyIncrement(increment));
+    }
+
+    private Optional<SyncResult> applyOnce(CatalogUpdatedEvent event, Supplier<SyncResult> apply) {
+        if (processedEventRepository.existsById(event.eventId())) {
+            return Optional.empty();
+        }
+        SyncResult result = apply.get();
+        processedEventRepository.save(ProcessedEvent.builder()
+                .eventId(event.eventId())
+                .eventType(event.eventType())
+                .processedAt(clock.instant())
+                .build());
+        return Optional.of(result);
     }
 }

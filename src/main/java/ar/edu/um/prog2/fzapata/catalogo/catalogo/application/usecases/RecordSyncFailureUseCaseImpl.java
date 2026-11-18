@@ -23,17 +23,6 @@ public class RecordSyncFailureUseCaseImpl implements RecordSyncFailureUseCase {
     private final SyncStateRepository syncStateRepository;
     private final Clock clock;
 
-    // Se guarda el mensaje solo de nuestras propias excepciones de la cátedra, que escribimos nosotros: el de
-    // Hibernate, el driver o Redis puede traer la sentencia SQL, nombres de columnas o valores. De cualquier otra se
-    // guarda solo la clase; el detalle completo queda en el log. Así lo que expone GET /api/sync/status es seguro
-    private String describe(Throwable cause) {
-        String name = cause.getClass().getSimpleName();
-        String text = cause instanceof CatedraException && cause.getMessage() != null
-                ? name + ": " + cause.getMessage()
-                : name;
-        return text.length() <= MAX_ERROR_LENGTH ? text : text.substring(0, MAX_ERROR_LENGTH);
-    }
-
     // Transacción propia: la de los datos ya se deshizo y arrastraría este registro con ella.
     // No cambia localVersion: la copia quedó como estaba
     @Override
@@ -43,5 +32,16 @@ public class RecordSyncFailureUseCaseImpl implements RecordSyncFailureUseCase {
                 .orElseThrow(SyncStateMissingException::new);
         state.recordFailure(type, describe(cause), clock.instant());
         syncStateRepository.save(state);
+    }
+
+    // Se guarda el mensaje solo de nuestras propias excepciones de la cátedra, que escribimos nosotros: el de
+    // Hibernate, el driver o Redis puede traer la sentencia SQL, nombres de columnas o valores. De cualquier otra se
+    // guarda solo la clase; el detalle completo queda en el log. Así lo que expone GET /api/sync/status es seguro
+    private String describe(Throwable cause) {
+        String name = cause.getClass().getSimpleName();
+        String text = cause instanceof CatedraException && cause.getMessage() != null
+                ? name + ": " + cause.getMessage()
+                : name;
+        return text.length() <= MAX_ERROR_LENGTH ? text : text.substring(0, MAX_ERROR_LENGTH);
     }
 }
