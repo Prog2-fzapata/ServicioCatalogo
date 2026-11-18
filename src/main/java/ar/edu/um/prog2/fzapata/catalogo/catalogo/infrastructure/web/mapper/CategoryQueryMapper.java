@@ -38,11 +38,6 @@ public class CategoryQueryMapper {
         return new PageQuery(pageable.getPageNumber(), pageable.getPageSize());
     }
 
-    // Ordenados porque Map.of no garantiza el orden de sus claves
-    private static String allowedFields() {
-        return String.join(", ", new TreeSet<>(SORTABLE.keySet()));
-    }
-
     // Sin sort en el pedido, por nombre
     public List<CategorySortOrder> toSortOrder(Pageable pageable) {
         if (pageable.getSort().isUnsorted()) {
@@ -58,5 +53,10 @@ public class CategoryQueryMapper {
             order.add(new CategorySortOrder(field, item.isAscending() ? Direction.ASC : Direction.DESC));
         }
         return order;
+    }
+
+    // Ordenados porque Map.of no garantiza el orden de sus claves
+    private static String allowedFields() {
+        return String.join(", ", new TreeSet<>(SORTABLE.keySet()));
     }
 }

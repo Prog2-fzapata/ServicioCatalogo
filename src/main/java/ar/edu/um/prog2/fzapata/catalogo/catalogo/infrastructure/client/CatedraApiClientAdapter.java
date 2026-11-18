@@ -24,18 +24,6 @@ public class CatedraApiClientAdapter implements CatedraApiClient {
     private final CatedraSnapshotMapper snapshotMapper;
     private final CatedraContractProperties contract;
 
-    // Se decide solo por el status, nunca por el texto del detalle (lo pide el contrato); el mensaje no incluye el cuerpo
-    private RuntimeException translate(HttpStatusCode status) {
-        if (status.value() == 401 || status.value() == 403) {
-            return new CatedraAuthenticationException(
-                    "La cátedra rechazó el JWT técnico (" + status.value() + "): revisar CATEDRA_JWT", null);
-        }
-        if (status.is5xxServerError()) {
-            return new CatedraUnavailableException("La cátedra no está disponible (" + status.value() + ")", null);
-        }
-        return new CatedraResponseException("La cátedra respondió " + status.value(), null);
-    }
-
     @Override
     public CatalogSnapshot fetchSnapshot() {
         try {
@@ -58,5 +46,17 @@ public class CatedraApiClientAdapter implements CatedraApiClient {
             String problem = NestedExceptionUtils.getMostSpecificCause(e).getClass().getSimpleName();
             throw new CatedraResponseException("La respuesta de la cátedra no se pudo leer (" + problem + ")", null);
         }
+    }
+
+    // Se decide solo por el status, nunca por el texto del detalle (lo pide el contrato); el mensaje no incluye el cuerpo
+    private RuntimeException translate(HttpStatusCode status) {
+        if (status.value() == 401 || status.value() == 403) {
+            return new CatedraAuthenticationException(
+                    "La cátedra rechazó el JWT técnico (" + status.value() + "): revisar CATEDRA_JWT", null);
+        }
+        if (status.is5xxServerError()) {
+            return new CatedraUnavailableException("La cátedra no está disponible (" + status.value() + ")", null);
+        }
+        return new CatedraResponseException("La cátedra respondió " + status.value(), null);
     }
 }

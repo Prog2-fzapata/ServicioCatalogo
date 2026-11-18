@@ -29,22 +29,6 @@ public class JpaProfessionalCategoryRepositoryAdapter implements ProfessionalCat
     private final JpaProfessionalCategoryRepository jpaProfessionalCategoryRepository;
     private final CatalogMapper catalogMapper;
 
-    // Sin criterio, la especificación vacía devuelve todas
-    private Specification<ProfessionalCategoryEntity> toSpecification(CategoryFilter filter) {
-        List<Specification<ProfessionalCategoryEntity>> criteria = new ArrayList<>();
-        if (filter.enabled() != null) {
-            criteria.add((root, query, builder) -> builder.equal(root.get("enabled"), filter.enabled()));
-        }
-        return Specification.allOf(criteria);
-    }
-
-    private String attributeOf(CategorySortOrder.Field field) {
-        return switch (field) {
-            case ID -> "id";
-            case NAME -> "name";
-        };
-    }
-
     // El id desempata siempre: sin un orden total, dos pedidos de páginas seguidas podrían repetir o saltear filas
     Sort toSort(List<CategorySortOrder> order) {
         List<Sort.Order> orders = new ArrayList<>(order.stream()
@@ -78,5 +62,21 @@ public class JpaProfessionalCategoryRepositoryAdapter implements ProfessionalCat
                 PageRequest.of(page.page(), page.size(), toSort(sort)));
         return new PagedResult<>(found.getContent().stream().map(catalogMapper::toDomainModel).toList(),
                 found.getTotalElements(), page);
+    }
+
+    private String attributeOf(CategorySortOrder.Field field) {
+        return switch (field) {
+            case ID -> "id";
+            case NAME -> "name";
+        };
+    }
+
+    // Sin criterio, la especificación vacía devuelve todas
+    private Specification<ProfessionalCategoryEntity> toSpecification(CategoryFilter filter) {
+        List<Specification<ProfessionalCategoryEntity>> criteria = new ArrayList<>();
+        if (filter.enabled() != null) {
+            criteria.add((root, query, builder) -> builder.equal(root.get("enabled"), filter.enabled()));
+        }
+        return Specification.allOf(criteria);
     }
 }
