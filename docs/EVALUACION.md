@@ -3,7 +3,7 @@
 
 > Documento **generado automáticamente** por la cátedra de Programación II (UM): RepoSense + análisis de calidad de **7 dimensiones**. **No editar a mano**: se regenera en cada evaluación.
 > Rama evaluada: `main`. Análisis **heurístico** (regex + métricas) + build: es una criba para orientar la revisión, **no una nota**. La **documentación** del repositorio no se evalúa.
-> Generado: 2026-11-18.
+> Generado: 2026-11-20.
 
 ## 1. Veredicto
 
@@ -12,14 +12,14 @@
 | Índice de calidad | **78/100** |
 | Tipo de repositorio | `backend` |
 | Build (`mvnw verify` / `gradlew check`) | OK |
-| Código (LOC) | 12,938 |
-| Archivos de código | 252 |
-| Clases | 274 |
+| Código (LOC) | 13,197 |
+| Archivos de código | 253 |
+| Clases | 281 |
 | Código dentro de clases (%POO) | 64% |
 | Funciones fuera de clases | 0 |
-| Duplicación (puerta) | 1.9% |
-| Duplicación lógica | 2.0% |
-| Duplicación de boilerplate | 14.5% |
+| Duplicación (puerta) | 1.8% |
+| Duplicación lógica | 1.9% |
+| Duplicación de boilerplate | 14.4% |
 | Cobertura | 99% |
 | Tope duro aplicado a D1 | `POO_BAJO` → D1 ≤ 60 |
 
@@ -40,7 +40,7 @@ Criterios de la cátedra (`CRITERIOS-CALIDAD.md`): **Aprobar** se juega con el p
 
 | Autor | Commits | Código (LOC) | Tests (LOC) | Docs (LOC) | Días activos | % del código |
 |---|---:|---:|---:|---:|---:|---:|
-| Franco Zapata | 55 | 5,031 | 10,813 | 704 | 23 | 100% |
+| Franco Zapata | 56 | 5,033 | 11,106 | 704 | 24 | 100% |
 
 > _El LOC de autoría lo calcula RepoSense sobre el historial y puede diferir del LOC de código del análisis (que mira el estado de `main`)._
 
@@ -182,7 +182,7 @@ El análisis encontró las siguientes señales, con el archivo y la línea donde
 - clase 'CatalogService' con baja cohesión (7%) — `src/main/java/ar/edu/um/prog2/fzapata/catalogo/catalogo/application/service/CatalogService.java:30`
 - clase 'SynchronizeCatalogUseCaseImpl' grande (LOC=134, métodos=14, campos=9) — `src/main/java/ar/edu/um/prog2/fzapata/catalogo/catalogo/application/usecases/SynchronizeCatalogUseCaseImpl.java:36`
 - clase 'SynchronizeCatalogUseCaseImpl' con baja cohesión (3%) — `src/main/java/ar/edu/um/prog2/fzapata/catalogo/catalogo/application/usecases/SynchronizeCatalogUseCaseImpl.java:36`
-- método 'SynchronizeCatalogUseCaseImpl.synchronizeFor' con complejidad 6 — `src/main/java/ar/edu/um/prog2/fzapata/catalogo/catalogo/application/usecases/SynchronizeCatalogUseCaseImpl.java:158`
+- método 'SynchronizeCatalogUseCaseImpl.synchronizeFor' con complejidad 6 — `src/main/java/ar/edu/um/prog2/fzapata/catalogo/catalogo/application/usecases/SynchronizeCatalogUseCaseImpl.java:74`
 - clase 'CatedraApiClientAdapter' con baja cohesión (20%) — `src/main/java/ar/edu/um/prog2/fzapata/catalogo/catalogo/infrastructure/client/CatedraApiClientAdapter.java:21`
 - método 'CatedraSnapshotResponse.CatedraSnapshotResponse' con 5 parámetros — `src/main/java/ar/edu/um/prog2/fzapata/catalogo/catalogo/infrastructure/client/dto/CatedraSnapshotResponse.java:10`
 - método 'CatedraSnapshotResponse.CategoryResponse' con 6 parámetros — `src/main/java/ar/edu/um/prog2/fzapata/catalogo/catalogo/infrastructure/client/dto/CatedraSnapshotResponse.java:17`
@@ -196,7 +196,7 @@ El análisis encontró las siguientes señales, con el archivo y la línea donde
 - clase 'JpaCatalogRepositoryAdapter' con baja cohesión (10%) — `src/main/java/ar/edu/um/prog2/fzapata/catalogo/catalogo/infrastructure/persistence/adapter/JpaCatalogRepositoryAdapter.java:27`
 - clase 'CatedraSyncSourceAdapter' grande (LOC=76, métodos=10, campos=5) — `src/main/java/ar/edu/um/prog2/fzapata/catalogo/catalogo/infrastructure/redis/CatedraSyncSourceAdapter.java:35`
 - clase 'CatedraSyncSourceAdapter' con baja cohesión (29%) — `src/main/java/ar/edu/um/prog2/fzapata/catalogo/catalogo/infrastructure/redis/CatedraSyncSourceAdapter.java:35`
-- método 'CatedraSyncSourceAdapter.readByIds' con 5 parámetros — `src/main/java/ar/edu/um/prog2/fzapata/catalogo/catalogo/infrastructure/redis/CatedraSyncSourceAdapter.java:72`
+- método 'CatedraSyncSourceAdapter.readByIds' con 5 parámetros — `src/main/java/ar/edu/um/prog2/fzapata/catalogo/catalogo/infrastructure/redis/CatedraSyncSourceAdapter.java:101`
 - clase 'ProfessionalQueryMapper' con baja cohesión (33%) — `src/main/java/ar/edu/um/prog2/fzapata/catalogo/catalogo/infrastructure/web/mapper/ProfessionalQueryMapper.java:21`
 - método 'CatedraContractProperties.RedisKeys' con 5 parámetros — `src/main/java/ar/edu/um/prog2/fzapata/catalogo/shared/config/CatedraContractProperties.java:23`
 - método 'RedisKeys.RedisKeys' con 5 parámetros — `src/main/java/ar/edu/um/prog2/fzapata/catalogo/shared/config/CatedraContractProperties.java:23`
@@ -210,7 +210,7 @@ El análisis encontró las siguientes señales, con el archivo y la línea donde
 - clase 'CatedraUnavailableException' con herencia profunda (DIT=2) — `src/main/java/ar/edu/um/prog2/fzapata/catalogo/catalogo/application/exception/CatedraUnavailableException.java:4`
 
 **duplicación** (6)
-- duplicación lógica: 1.9% · boilerplate: 14.5%
+- duplicación lógica: 1.8% · boilerplate: 14.4%
 - bloque de 8 líneas repetido 2 veces en src/test/java/ar/edu/um/prog2/fzapata/catalogo/catalogo/infrastructure/web/controller/ProfessionalCategoryControllerTest.java:108, src/test/java/ar/edu/um/prog2/fzapata/catalogo/catalogo/infrastructure/web/controller/ProfessionalControllerTest.java:138 — `src/test/java/ar/edu/um/prog2/fzapata/catalogo/catalogo/infrastructure/web/controller/ProfessionalCategoryControllerTest.java:108`
 - bloque de 8 líneas repetido 2 veces en src/test/java/ar/edu/um/prog2/fzapata/catalogo/usuario/infrastructure/persistence/adapter/JpaUserRepositoryAdapterTest.java:66, src/test/java/ar/edu/um/prog2/fzapata/catalogo/usuario/infrastructure/web/controller/AccountManagementControllerTest.java:71 — `src/test/java/ar/edu/um/prog2/fzapata/catalogo/usuario/infrastructure/persistence/adapter/JpaUserRepositoryAdapterTest.java:66`
 - bloque de 8 líneas repetido 2 veces en src/test/java/ar/edu/um/prog2/fzapata/catalogo/usuario/infrastructure/persistence/mapper/UserMapperTest.java:22, src/test/java/ar/edu/um/prog2/fzapata/catalogo/usuario/infrastructure/web/controller/AccountManagementControllerTest.java:68 — `src/test/java/ar/edu/um/prog2/fzapata/catalogo/usuario/infrastructure/persistence/mapper/UserMapperTest.java:22`
@@ -219,14 +219,14 @@ El análisis encontró las siguientes señales, con el archivo y la línea donde
 
 ## 6. Evolución por commit
 
-Métricas calculadas sobre el estado de `main` en **cada commit** (5 commits con trabajo), del primero al último. La calidad usa el perfil `exigente`; el aporte de código lo mide RepoSense. El índice puede **bajar** al crecer el proyecto: se acumulan señales.
+Métricas calculadas sobre el estado de `main` en **cada commit** (6 commits con trabajo), del primero al último. La calidad usa el perfil `exigente`; el aporte de código lo mide RepoSense. El índice puede **bajar** al crecer el proyecto: se acumulan señales.
 
 ```mermaid
 xychart-beta
     title "Índice de calidad a lo largo de los commits"
-    x-axis ["d85388a", "89cf6ad", "e4697cc", "4676bc8", "124ece0"]
+    x-axis ["d85388a", "89cf6ad", "e4697cc", "4676bc8", "124ece0", "d67d631"]
     y-axis "Índice" 0 --> 100
-    line [0, 15, 15, 66, 66]
+    line [0, 15, 15, 66, 66, 66]
 ```
 
 | # | Fecha | Commit | Autor | LOC | Índice | %POO | Duplic. | Sueltas |
@@ -236,6 +236,7 @@ xychart-beta
 | 3 | 2026-10-13 | `e4697cc` | Franco Zapata | 0 | 15 | 0% | 0.0% | 0 |
 | 4 | 2026-11-02 | `4676bc8` | Franco Zapata | 11,816 | 66 | 63% | 2.0% | 1 |
 | 5 | 2026-11-17 | `124ece0` | Franco Zapata | 12,938 | 66 | 64% | 1.9% | 0 |
+| 6 | 2026-11-18 | `d67d631` | Franco Zapata | 13,197 | 66 | 64% | 1.8% | 0 |
 
 ---
 _Informe generado por la cátedra. Las dimensiones y umbrales corresponden a `calidad.py` (perfil `exigente`); el semáforo, a `CRITERIOS-CALIDAD.md`. La documentación del repositorio no se evalúa. Ante dudas, revisá el archivo señalado._
