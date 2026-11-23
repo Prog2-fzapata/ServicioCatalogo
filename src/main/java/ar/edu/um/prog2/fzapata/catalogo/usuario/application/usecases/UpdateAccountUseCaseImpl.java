@@ -27,22 +27,39 @@ public class UpdateAccountUseCaseImpl implements UpdateAccountUseCase {
         }
         User user = current.get();
 
-        String email = changes.getEmail().toLowerCase(Locale.ROOT);
-        // Conservar el propio email es válido; no puede ser el email ni el login de otro usuario
+        // Solo cambia lo que llega: un campo ausente (null) conserva su valor. Login, contraseña, roles e id no se
+        // cambian por acá
+        if (changes.getEmail() != null) {
+            String email = changes.getEmail().toLowerCase(Locale.ROOT);
+            requireNotUsedByAnother(email, userId);
+            user.setEmail(email);
+        }
+        user.setFirstName(textOrKeep(changes.getFirstName(), user.getFirstName()));
+        user.setLastName(textOrKeep(changes.getLastName(), user.getLastName()));
+        user.setImageUrl(textOrKeep(changes.getImageUrl(), user.getImageUrl()));
+        user.setLangKey(valueOrKeep(changes.getLangKey(), user.getLangKey()));
+        return userRepository.update(userId, user);
+    }
+
+    // Conservar el propio email es válido; no puede ser el email ni el login de otro usuario
+    private void requireNotUsedByAnother(String email, Long userId) {
         if (isAnotherUser(userRepository.findByEmail(email), userId)
                 || isAnotherUser(userRepository.findByLogin(email), userId)) {
             throw new EmailAlreadyUsedException();
         }
+    }
 
-        // Solo estos campos se pueden cambiar acá: login, contraseña, roles e id quedan como están
-        user.setFirstName(changes.getFirstName());
-        user.setLastName(changes.getLastName());
-        user.setEmail(email);
-        user.setImageUrl(changes.getImageUrl());
-        if (changes.getLangKey() != null && !changes.getLangKey().isBlank()) {
-            user.setLangKey(changes.getLangKey());
+    // Ausente conserva el valor; un texto vacío lo borra (queda como si nunca se hubiera cargado)
+    private String textOrKeep(String sent, String current) {
+        if (sent == null) {
+            return current;
         }
-        return userRepository.update(userId, user);
+        return sent.isBlank() ? null : sent;
+    }
+
+    // Ausente o en blanco conserva el valor: el dato no puede quedar vacío
+    private String valueOrKeep(String sent, String current) {
+        return sent == null || sent.isBlank() ? current : sent;
     }
 
     private boolean isAnotherUser(Optional<User> found, Long userId) {

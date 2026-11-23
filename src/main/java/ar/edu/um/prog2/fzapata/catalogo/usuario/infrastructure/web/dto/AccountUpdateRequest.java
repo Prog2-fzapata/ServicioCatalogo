@@ -1,7 +1,6 @@
 package ar.edu.um.prog2.fzapata.catalogo.usuario.infrastructure.web.dto;
 
 import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -22,7 +21,6 @@ public class AccountUpdateRequest {
     @Size(max = 50, message = "El apellido admite hasta 50 caracteres")
     private String lastName;
 
-    @NotBlank(message = "El email es obligatorio")
     @Email(message = "El email no es válido")
     @Size(min = 5, max = 254, message = "El email debe tener entre 5 y 254 caracteres")
     private String email;

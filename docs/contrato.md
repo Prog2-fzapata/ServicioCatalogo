@@ -89,13 +89,17 @@ Errores: `401` sin token válido y `404 USER_NOT_FOUND` si el usuario del token 
 
 #### `POST /api/account`
 
-Actualiza los datos editables del usuario autenticado.
+Actualiza los datos editables del usuario autenticado, y solo los que se envían: todos los campos son opcionales y los que faltan (o van en `null`) conservan su valor ([decisión 032](decisiones/032-actualizacion-parcial-de-la-cuenta.md)). Un cuerpo vacío, `{}`, es válido y no cambia nada.
 
 ```json
-{ "firstName": "Juan", "lastName": "Perez", "email": "juan@example.com", "imageUrl": null, "langKey": "es" }
+{ "firstName": "Juan", "lastName": "Perez" }
 ```
 
-Responde `200 OK` sin cuerpo. Tiene las mismas restricciones que el registro y el `email` es obligatorio. `login`, contraseña, autoridades e `id` no se cambian por acá. Si falta `langKey` se conserva el actual; `firstName`, `lastName` e `imageUrl` ausentes quedan vacíos. Errores: `401`, `404 USER_NOT_FOUND`, `400 VALIDATION_ERROR` y `400 EMAIL_ALREADY_USED` (solo si el email es el email o el login de otro usuario; conservar el propio es válido).
+```json
+{ "email": "juan@example.com" }
+```
+
+Para borrar el nombre, el apellido o la imagen se envía un texto vacío (`""`): el dato queda como si nunca se hubiera cargado. Tiene las mismas restricciones de formato y largo que el registro; un `email` que llega debe ser válido (uno vacío es un `400`). `login`, contraseña, autoridades e `id` no se cambian por acá. Responde `200 OK` sin cuerpo. Errores: `401`, `404 USER_NOT_FOUND`, `400 VALIDATION_ERROR` y `400 EMAIL_ALREADY_USED` (solo si el email que llega es el email o el login de otro usuario; conservar el propio es válido).
 
 ### Catálogo
 
