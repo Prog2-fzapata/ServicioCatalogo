@@ -122,7 +122,7 @@ Todos exigen `Authorization: Bearer <id_token>`, salvo los públicos. Los parám
 | `POST /api/register` | público | Registra un usuario |
 | `POST /api/authenticate` | público | Devuelve el JWT (`id_token`) |
 | `GET /api/account` | JWT | Devuelve la cuenta del usuario autenticado |
-| `POST /api/account` | JWT | Actualiza los datos editables de la cuenta |
+| `POST /api/account` | JWT | Actualiza los datos editables de la cuenta, solo los que se envían |
 | `GET /api/professional-categories` | JWT | Lista las categorías, con el filtro `enabled` y paginadas |
 | `GET /api/professionals` | JWT | Busca profesionales por `categoryId`, `name`, `enabled` y `available`, paginados |
 | `GET /api/professionals/{id}` | JWT | Devuelve la agenda vigente de un profesional, con todos sus horarios |

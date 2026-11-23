@@ -37,3 +37,4 @@ Estados posibles: `aceptada`, `reemplazada por NNN` y `obsoleta`.
 | 029 | [Informar si la categoría del profesional está habilitada](029-category-enabled-en-el-detalle.md) | aceptada |
 | 030 | [Exigir el claim exp en el JWT](030-claim-exp-obligatorio.md) | aceptada |
 | 031 | [Escribir los logs en JSON, con campos y sin secretos](031-logs-en-json-sin-secretos.md) | aceptada |
+| 032 | [Actualizar la cuenta solo con los campos que llegan](032-actualizacion-parcial-de-la-cuenta.md) | aceptada |

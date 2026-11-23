@@ -141,6 +141,27 @@ class AuthenticationIntegrationTest {
         authenticate("nueva@mail.com", "clave123", false).andExpect(status().isOk());
     }
 
+    // Quien se registra sin nombre puede cargarlo después sin reenviar el email
+    @Test
+    void updatingOnlyTheNameKeepsTheEmailAndOnlyTheEmailKeepsTheName() throws Exception {
+        register("maria.perez", "maria@mail.com");
+        String token = login("maria.perez");
+
+        saveAccount(token, "{\"firstName\":\"Mariana\",\"lastName\":\"Gomez\"}").andExpect(status().isOk());
+
+        getAccount(token)
+                .andExpect(jsonPath("$.firstName").value("Mariana"))
+                .andExpect(jsonPath("$.lastName").value("Gomez"))
+                .andExpect(jsonPath("$.email").value("maria@mail.com"));
+
+        saveAccount(token, "{\"email\":\"nueva@mail.com\"}").andExpect(status().isOk());
+
+        getAccount(token)
+                .andExpect(jsonPath("$.firstName").value("Mariana"))
+                .andExpect(jsonPath("$.lastName").value("Gomez"))
+                .andExpect(jsonPath("$.email").value("nueva@mail.com"));
+    }
+
     @Test
     void theIssuedTokenCarriesTheStoredUserIdAndRole() throws Exception {
         register("maria.perez", "maria@mail.com");
