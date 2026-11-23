@@ -43,6 +43,7 @@ class UpdateAccountUseCaseImplTest {
                 .firstName("Maria")
                 .lastName("Perez")
                 .email("maria@mail.com")
+                .imageUrl("https://img.example/vieja.png")
                 .langKey("es")
                 .activated(true)
                 .authorities(Set.of("ROLE_USER"))
@@ -86,12 +87,84 @@ class UpdateAccountUseCaseImplTest {
     }
 
     @Test
-    void blankLangKeyKeepsTheCurrentOne() {
+    void sendingOnlyTheFirstNameChangesOnlyThatAndDoesNotLookUpEmails() {
+        when(userRepository.findById(7L)).thenReturn(Optional.of(current()));
+        when(userRepository.update(eq(7L), any(User.class)))
+                .thenAnswer(invocation -> Optional.of(invocation.getArgument(1)));
+
+        useCase.updateAccount(7L, User.builder().firstName("Mariana").build());
+
+        User saved = savedUser();
+        assertThat(saved.getFirstName()).isEqualTo("Mariana");
+        assertThat(saved.getLastName()).isEqualTo("Perez");
+        assertThat(saved.getEmail()).isEqualTo("maria@mail.com");
+        assertThat(saved.getImageUrl()).isEqualTo("https://img.example/vieja.png");
+        assertThat(saved.getLangKey()).isEqualTo("es");
+        verify(userRepository, never()).findByEmail(any());
+        verify(userRepository, never()).findByLogin(any());
+    }
+
+    @Test
+    void sendingOnlyTheEmailChangesOnlyThatAndKeepsTheRest() {
+        when(userRepository.findById(7L)).thenReturn(Optional.of(current()));
+        when(userRepository.update(eq(7L), any(User.class)))
+                .thenAnswer(invocation -> Optional.of(invocation.getArgument(1)));
+
+        useCase.updateAccount(7L, User.builder().email("Nuevo@Mail.com").build());
+
+        User saved = savedUser();
+        assertThat(saved.getEmail()).isEqualTo("nuevo@mail.com");
+        assertThat(saved.getFirstName()).isEqualTo("Maria");
+        assertThat(saved.getLastName()).isEqualTo("Perez");
+        assertThat(saved.getImageUrl()).isEqualTo("https://img.example/vieja.png");
+        assertThat(saved.getLangKey()).isEqualTo("es");
+    }
+
+    @Test
+    void sendingNothingLeavesTheAccountAsItWas() {
+        when(userRepository.findById(7L)).thenReturn(Optional.of(current()));
+        when(userRepository.update(eq(7L), any(User.class)))
+                .thenAnswer(invocation -> Optional.of(invocation.getArgument(1)));
+
+        useCase.updateAccount(7L, User.builder().build());
+
+        assertThat(savedUser()).usingRecursiveComparison().isEqualTo(current());
+    }
+
+    // Un texto vacío es la forma de borrar un dato; ausente es la forma de no tocarlo
+    @Test
+    void anEmptyTextClearsTheValueAndAnAbsentOneKeepsIt() {
+        when(userRepository.findById(7L)).thenReturn(Optional.of(current()));
+        when(userRepository.update(eq(7L), any(User.class)))
+                .thenAnswer(invocation -> Optional.of(invocation.getArgument(1)));
+
+        useCase.updateAccount(7L, User.builder().firstName("").imageUrl("  ").build());
+
+        User saved = savedUser();
+        assertThat(saved.getFirstName()).isNull();
+        assertThat(saved.getImageUrl()).isNull();
+        assertThat(saved.getLastName()).isEqualTo("Perez");
+    }
+
+    @Test
+    void aMissingLangKeyKeepsTheCurrentOne() {
         when(userRepository.findById(7L)).thenReturn(Optional.of(current()));
         when(userRepository.update(eq(7L), any(User.class)))
                 .thenAnswer(invocation -> Optional.of(invocation.getArgument(1)));
 
         useCase.updateAccount(7L, changes("maria@mail.com", null));
+
+        assertThat(savedUser().getLangKey()).isEqualTo("es");
+    }
+
+    // La columna no admite vacío: dos espacios pasan la validación de largo, pero no deben guardarse
+    @Test
+    void aBlankLangKeyKeepsTheCurrentOne() {
+        when(userRepository.findById(7L)).thenReturn(Optional.of(current()));
+        when(userRepository.update(eq(7L), any(User.class)))
+                .thenAnswer(invocation -> Optional.of(invocation.getArgument(1)));
+
+        useCase.updateAccount(7L, changes("maria@mail.com", "  "));
 
         assertThat(savedUser().getLangKey()).isEqualTo("es");
     }

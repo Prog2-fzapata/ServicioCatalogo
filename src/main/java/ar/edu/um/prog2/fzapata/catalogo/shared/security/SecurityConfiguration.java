@@ -28,8 +28,8 @@ public class SecurityConfiguration {
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http, ProblemDetailsSecurityHandler problemHandler) {
         // Sin sesión ni cookies: cada pedido trae su JWT, así que deshabilitamos el filtro CSRF
-        // Quita el CsrfFilter
-        http.csrf(AbstractHttpConfigurer::disable) // NOSONAR: API sin sesión ni cookies, ver docs/decisiones.md (16)
+        // Quita el CsrfFilter. El motivo completo: docs/decisiones/016-validacion-del-token-sin-sesion.md
+        http.csrf(AbstractHttpConfigurer::disable) // NOSONAR: API sin sesión ni cookies, ver la decisión 016
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
                 // Reglas por ruta

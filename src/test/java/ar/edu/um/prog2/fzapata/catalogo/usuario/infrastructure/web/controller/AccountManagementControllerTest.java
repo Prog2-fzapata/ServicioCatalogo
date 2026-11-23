@@ -159,11 +159,33 @@ class AccountManagementControllerTest {
         verifyNoInteractions(userService);
     }
 
+    // Cada campo es opcional: lo que no llega queda en null y el caso de uso lo conserva
     @Test
-    void saveAccountWithoutEmailReturnsValidationError() throws Exception {
-        saveAccount("{\"firstName\":\"Mariana\"}", userToken(7L))
+    void saveAccountWithOnlyTheNameLeavesTheOtherFieldsAbsent() throws Exception {
+        saveAccount("{\"firstName\":\"Mariana\"}", userToken(7L)).andExpect(status().isOk());
+
+        ArgumentCaptor<User> changes = ArgumentCaptor.forClass(User.class);
+        verify(userService).updateAccount(eq(7L), changes.capture());
+        assertThat(changes.getValue().getFirstName()).isEqualTo("Mariana");
+        assertThat(changes.getValue().getLastName()).isNull();
+        assertThat(changes.getValue().getEmail()).isNull();
+        assertThat(changes.getValue().getImageUrl()).isNull();
+        assertThat(changes.getValue().getLangKey()).isNull();
+    }
+
+    @Test
+    void saveAccountWithAnEmptyBodyIsAccepted() throws Exception {
+        saveAccount("{}", userToken(7L)).andExpect(status().isOk());
+    }
+
+    @Test
+    void saveAccountWithAnEmptyEmailReturnsValidationError() throws Exception {
+        saveAccount("{\"email\":\"\"}", userToken(7L))
                 .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
                 .andExpect(jsonPath("$.fieldErrors[0].field").value("email"));
+
+        verifyNoInteractions(userService);
     }
 
     @Test
