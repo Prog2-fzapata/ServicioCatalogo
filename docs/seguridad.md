@@ -41,7 +41,7 @@ Este documento reúne las decisiones de autenticación, autorización y protecci
 
 - Los cuerpos se validan con Bean Validation y los errores devuelven `400 VALIDATION_ERROR` con el campo y el motivo. Un parámetro de tipo equivocado devuelve `400` antes de llegar al controller.
 - En las búsquedas, `sort` acepta solo una lista fija de campos (los nombres de la respuesta, no los de las columnas); el resto es un `400`. El `size` tiene un tope y un valor mayor se reduce.
-- El texto de `name` se limita a 100 caracteres y se escapan los comodines de `LIKE` (`%`, `_` y `\`), de modo que se busca como texto y no como un patrón ([decisión 027](decisiones/027-busqueda-de-profesionales.md)).
+- El texto de `name` se limita a 100 caracteres, se escapan los comodines de `LIKE` (`%`, `_` y `\`) para que se busque como texto y no como un patrón, y viaja como **parámetro** de la consulta: nunca se escribe dentro de la sentencia SQL, así que la seguridad no depende del escape de una librería ni de la configuración de la base. `NameSearchBindingTest` registra cada sentencia que Hibernate manda a la base y comprueba que el texto buscado no aparece en ninguna ([decisión 027](decisiones/027-busqueda-de-profesionales.md)).
 - Las respuestas de error no exponen mensajes internos: el `500` lleva un detalle genérico, y el mensaje de una excepción de la base, que puede traer la sentencia SQL o los valores, solo llega al log.
 
 ## Secretos y datos sensibles

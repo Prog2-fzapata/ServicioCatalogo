@@ -31,6 +31,8 @@ El evento solo **dispara**: la versión que manda es la que Redis publica en ese
 | Menor que `oldestAvailableVersion` | snapshot completo: ya no están todos los cambios necesarios |
 | Cualquier otra menor | incremental, de a una versión, desde `local + 1` hasta `currentVersion` |
 
+Estas reglas son una función pura del dominio, `SyncPlanner.plan(localVersion, metadata)`: no lee Redis ni la base y devuelve un `SyncPlan` (`UpToDate`, `Snapshot(reason)` o `Incremental(from, to)`), con el motivo del snapshot escrito en el propio plan. El caso de uso solo lee la metadata, se la pasa y ejecuta el plan, y por eso las reglas y sus bordes se prueban sin ningún mock (`SyncPlannerTest`).
+
 ```mermaid
 flowchart TD
     T["Disparador: evento CatalogUpdated<br/>o verificación periódica"] --> M["Leer la metadata de Redis:<br/>currentVersion y oldestAvailableVersion"]
@@ -123,4 +125,4 @@ Los valores de ajuste tienen un valor por defecto en `application.properties` y,
 
 ## Cómo se ve el estado
 
-`GET /api/sync/status` informa la versión local y el resultado del último intento (ver [contrato.md](contrato.md#get-apisyncstatus)). Los errores se guardan sin datos sensibles: de una falla al hablar con la cátedra se guarda la clase y el mensaje, que escribimos nosotros; de cualquier otra excepción, solo el nombre de la clase ([decisión 026](decisiones/026-estado-de-la-sincronizacion.md)). El detalle completo queda en el log.
+`GET /api/sync/status` informa la versión local y el resultado del último intento (ver [contrato.md](contrato.md#get-apisyncstatus)). Los errores se guardan sin datos sensibles: de una falla al hablar con la cátedra se guarda la clase y el mensaje, que escribimos nosotros; de cualquier otra excepción, solo el nombre de la clase ([decisión 026](decisiones/026-estado-de-la-sincronizacion.md)). El detalle completo queda en el log. Las reglas de qué queda escrito en cada caso (un éxito deja la versión, la fecha, el tipo y el estado `OK` y borra el error; un fallo no cambia la versión; limpiar un error no cambia ni la versión ni el tipo) viven en `SyncState`, con `recordSuccess`, `recordFailure` y `clearError`: los casos de uso las llaman y no pueden saltearlas, porque `SyncState` no tiene setters.

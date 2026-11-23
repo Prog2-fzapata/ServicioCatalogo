@@ -28,4 +28,4 @@ Para sincronizar por incrementos y para saber si la copia local está al día, e
 
 ## Consecuencias
 
-El paquete `redis` depende de `client` (DTO y mapper compartidos). Las lecturas por ids no son atómicas respecto de una publicación nueva de la cátedra; la incremental lo tolera porque solo avanza la versión local cuando aplicó todos los cambios de una versión. Los tests levantan un Redis real en Docker (Testcontainers), incluido uno con un usuario de solo lectura como el de la cátedra. El CI no puede probar contra el Redis real de la cátedra (está detrás de ZeroTier); la corrida manual está en [docs/evidencias.md](../evidencias.md).
+El paquete `redis` depende de `client` (DTO y mapper compartidos). Las lecturas por ids no son atómicas respecto de una publicación nueva de la cátedra; la incremental lo tolera porque solo avanza la versión local cuando aplicó todos los cambios de una versión. Los tests levantan un Redis real en Docker (Testcontainers), incluido uno con un usuario de solo lectura como el de la cátedra. El CI no puede probar contra el Redis real de la cátedra (está detrás de ZeroTier).
