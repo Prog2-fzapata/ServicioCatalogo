@@ -236,6 +236,7 @@ Todos los errores salen como `application/problem+json`, con el mismo formato qu
 | 405 | `METHOD_NOT_ALLOWED` | el método HTTP no está permitido para la ruta |
 | 406 | `NOT_ACCEPTABLE` | el formato de respuesta pedido no está disponible |
 | 415 | `UNSUPPORTED_MEDIA_TYPE` | el `Content-Type` no está soportado |
+| 4xx | `REQUEST_ERROR` | cualquier otro error 4xx que arma Spring por su cuenta y no tiene código propio; conserva su estado HTTP |
 | 500 | `INTERNAL_ERROR` | un error inesperado; el detalle es genérico a propósito, sin mensajes internos |
 
 ## Lo que turnos consume de catálogo
